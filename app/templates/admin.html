@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="gl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DrinkCounter Admin</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="admin-page">
+    <main class="shell">
+      <section class="panel">
+        <p class="eyebrow">Control móbil</p>
+        <h1>CubataCounter</h1>
+
+        <div class="counter-box">
+          <span class="counter-label">Valor actual</span>
+          <strong id="counter-value">0</strong>
+        </div>
+
+        <div class="quick-increments" aria-label="Incrementos rápidos">
+          <button data-action="increment-fixed" data-amount="1">+1</button>
+          <button data-action="increment-fixed" data-amount="2">+2</button>
+          <button data-action="increment-fixed" data-amount="3">+3</button>
+          <button data-action="increment-fixed" data-amount="4">+4</button>
+          <button data-action="increment-fixed" data-amount="5">+5</button>
+        </div>
+
+        <div class="quick-custom">
+          <label>
+            Cantidade personalizada
+            <div class="quick-custom-row">
+              <input id="amount" type="number" min="6" value="6" />
+              <button class="primary-action" data-action="increment-custom">Sumar</button>
+            </div>
+          </label>
+        </div>
+
+        <details class="advanced">
+          <summary>Opcións avanzadas</summary>
+
+          <div class="grid">
+            <label>
+              Cantidade para restar
+              <input id="decrement-value" type="number" min="1" value="1" />
+            </label>
+
+            <label>
+              Valor para setear
+              <input id="set-value" type="number" min="0" value="0" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button data-action="decrement">Restar</button>
+            <button data-action="set">Setear</button>
+          </div>
+        </details>
+
+        <p id="message" class="message"></p>
+      </section>
+    </main>
+
+    <dialog id="confirm-dialog" class="confirm-dialog">
+      <form method="dialog">
+        <h3>Confirmar corrección</h3>
+
+        <p id="confirm-message"></p>
+
+        <div class="dialog-actions">
+          <button value="cancel">Cancelar</button>
+          <button value="confirm" class="primary-action">
+            Confirmar
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
