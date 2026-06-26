@@ -16,11 +16,17 @@ from starlette.requests import Request
 from app.schemas import CounterChangeRequest, CounterResponse, CounterSetRequest
 from app.service import CounterService
 
+from fastapi.responses import RedirectResponse
+from starlette.requests import Request
+from spotipy.oauth2 import SpotifyOAuth
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "counter.db"
 TEMPLATES_DIR = BASE_DIR / "app" / "templates"
 STATIC_DIR = BASE_DIR / "app" / "static"
+
+spotify_tokens = {}
 
 app = FastAPI(title="DrinkCounter")
 app.add_middleware(
@@ -32,6 +38,19 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
+
+sp_oauth = SpotifyOAuth(
+    client_id="efd10fafdac4485dbc62c7ab6bfc1867",
+    client_secret="1f187a6ec19a4811998c7ef8b9947574",
+    redirect_uri="https://lajueiro.gal/callback",
+    scope=(
+        "streaming "
+        "user-read-email "
+        "user-read-private "
+        "user-modify-playback-state "
+        "user-read-playback-state"
+    )
+)
 
 
 def get_service() -> CounterService:
@@ -92,6 +111,42 @@ def set_counter(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return CounterResponse(value=value)
+
+
+@app.get("/login")
+def login():
+    return RedirectResponse(
+        url=sp_oauth.get_authorize_url()
+    )
+
+
+@app.get("/callback")
+def callback(request: Request):
+
+    code = request.query_params.get("code")
+
+    token_info = sp_oauth.get_access_token(code)
+
+    spotify_tokens["token"] = token_info
+
+    return RedirectResponse("/tv")
+
+
+@app.get("/token")
+def get_token():
+
+    token = spotify_tokens.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Spotify non autenticado"
+        )
+
+    return {
+        "access_token":
+        token["access_token"]
+    }
 
 
 if __name__ == "__main__":

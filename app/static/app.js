@@ -160,3 +160,32 @@ async function showConfirmation(currentValue, futureValue) {
     );
   });
 }
+
+window.onSpotifyWebPlaybackSDKReady = () => {
+
+ const player = new Spotify.Player({
+   name: "CubataCounter",
+   getOAuthToken: cb => {
+      fetch("/token")
+      .then(r => r.json())
+      .then(data => cb(data.access_token))
+   }
+ });
+
+ player.connect();
+
+}
+
+await fetch(
+ 'https://api.spotify.com/v1/me/player/play',
+ {
+   method:'PUT',
+   headers:{
+      Authorization:'Bearer '+token
+   },
+   body:JSON.stringify({
+      context_uri:
+      'spotify:playlist:0F9vXOWHObYhfiC7udX0do'
+   })
+ }
+)
