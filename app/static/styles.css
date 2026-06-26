@@ -428,3 +428,17 @@ input {
     flex-direction: column;
   }
 }
+
+.spotify-player {
+    width: 100%;
+    max-width: 700px;
+
+    margin-top: 40px;
+
+    display: flex;
+    justify-content: center;
+}
+
+.spotify-player iframe {
+    width: 100%;
+}
