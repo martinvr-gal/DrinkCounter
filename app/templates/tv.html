@@ -10,28 +10,47 @@
   <body class="tv-page">
     <main class="tv-shell">
 
-      <section class="tv-stage">
-        <h1>CubataCounter</h1>
+      <div class="main-layout">
 
-        <div class="counter-display" aria-live="polite" aria-atomic="true">
-          <span>Número de cubatas vendidos</span>
-          <strong id="counter-value">0</strong>
-        </div>
-      </section>
-      <section class="spotify-player">
-        <iframe
-          style="border-radius:12px"
-          src="https://open.spotify.com/embed/playlist/0F9vXOWHObYhfiC7udX0do"
-          width="100%"
-          height="152"
-          frameborder="0"
-          allowfullscreen=""
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy">
-        </iframe>
-      </section>
+        <section class="tv-stage">
+          <h1>CubataCounter</h1>
+
+          <div class="counter-display" aria-live="polite" aria-atomic="true">
+            <span>Número de cubatas vendidos</span>
+            <strong id="counter-value">0</strong>
+          </div>
+        </section>
+
+        <section class="spotify">
+          <div id="player">
+            <div id="playlist-name">—</div>
+            <img id="cover" />
+            <div id="title">—</div>
+            <div id="artist">—</div>
+
+            <div id="progress-container">
+              <div id="progress-bar"></div>
+            </div>
+
+            <div id="time">
+              <span id="current-time">0:00</span>
+              <span id="total-time">0:00</span>
+            </div>
+
+            <div class="controls">
+              <button id="prev">⏮</button>
+              <button id="play">▶</button>
+              <button id="next">⏭</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
     </main>
 
     <script src="/static/app.js"></script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="/static/spotify.js"></script>
   </body>
 </html>
