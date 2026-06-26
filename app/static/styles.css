@@ -34,6 +34,32 @@ body.tv-page {
     linear-gradient(160deg, var(--tv-bg), #0b1224);
 }
 
+.main-layout {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.tv-stage {
+  flex: 1;
+}
+
+.spotify {
+  flex: 0 0 380px;
+}
+
+@media (max-width: 900px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .spotify {
+    flex: 1;
+    width: 100%;
+  }
+}
+
 .shell,
 .tv-shell {
   min-height: 100vh;
@@ -429,16 +455,158 @@ input {
   }
 }
 
-.spotify-player {
-    width: 100%;
-    max-width: 700px;
+/* =========================
+   SPOTIFY PLAYER CONTAINER
+========================= */
 
-    margin-top: 40px;
-
-    display: flex;
-    justify-content: center;
+.spotify {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 30px;
 }
 
-.spotify-player iframe {
-    width: 100%;
+#player {
+  width: 360px;
+  background: rgba(18, 18, 18, 0.85);
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 20px;
+  color: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* =========================
+   PLAYLIST INFO
+========================= */
+
+#playlist-name {
+  font-size: 12px;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+/* =========================
+   COVER IMAGE
+========================= */
+
+#cover {
+  width: 100%;
+  height: 240px;
+  object-fit: contain;
+  background: transparent;
+  border-radius: 14px;
+}
+
+/* =========================
+   TEXT INFO
+========================= */
+
+#title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+#artist {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-bottom: 12px;
+}
+
+#title,
+#artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* =========================
+   PROGRESS BAR
+========================= */
+
+#progress-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 10px 0 5px;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #1db954, #1ed760);
+  border-radius: 10px;
+  transition: width 0.2s linear;
+}
+
+/* =========================
+   TIME
+========================= */
+
+#time {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 12px;
+  opacity: 0.6;
+  margin-bottom: 15px;
+  align-self: stretch;
+}
+
+#time span {
+  flex: 0 0 auto;
+}
+
+/* =========================
+   CONTROLS
+========================= */
+
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#player button {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: white;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  margin: 0;
+  cursor: pointer;
+  transition: 0.2s ease;
+  font-size: 16px;
+}
+
+#player button:hover {
+  background: rgba(29, 185, 84, 0.25);
+  transform: scale(1.05);
+}
+
+#play {
+  width: 55px;
+  height: 55px;
+  font-size: 18px;
+  background: rgba(29, 185, 84, 0.2);
+  border: 1px solid rgba(29, 185, 84, 0.4);
+}
+
+#play:hover {
+  background: rgba(29, 185, 84, 0.35);
 }

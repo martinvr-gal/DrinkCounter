@@ -39,12 +39,10 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
-print(os.getenv("SPOTIFY_REDIRECT_URI")) #Borrar
-
 sp_oauth = SpotifyOAuth(
-    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
+    client_id="efd10fafdac4485dbc62c7ab6bfc1867",
+    client_secret="5a5baa2c8d4f483e86b39105f782bec8",
+    redirect_uri="http://127.0.0.1:8000/callback",
     scope=(
         "streaming "
         "user-read-email "
@@ -149,6 +147,11 @@ def get_token():
         "access_token":
         token["access_token"]
     }
+
+
+@app.get("/has-token")
+def has_token():
+    return {"ok": "token" in spotify_tokens}
 
 
 if __name__ == "__main__":
