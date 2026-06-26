@@ -39,6 +39,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
+print(os.getenv("SPOTIFY_REDIRECT_URI")) #Borrar
+
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
