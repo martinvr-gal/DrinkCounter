@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sys
+import sys, os
 from pathlib import Path
 
 if __package__ is None or __package__ == "":
@@ -40,9 +40,9 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
 sp_oauth = SpotifyOAuth(
-    client_id="efd10fafdac4485dbc62c7ab6bfc1867",
-    client_secret="1f187a6ec19a4811998c7ef8b9947574",
-    redirect_uri="https://lajueiro.gal/callback",
+    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
     scope=(
         "streaming "
         "user-read-email "
