@@ -40,9 +40,9 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
 sp_oauth = SpotifyOAuth(
-    client_id="efd10fafdac4485dbc62c7ab6bfc1867",
-    client_secret="5a5baa2c8d4f483e86b39105f782bec8",
-    redirect_uri="http://127.0.0.1:8000/callback",
+    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
     scope=(
         "streaming "
         "user-read-email "
