@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys, os
 from pathlib import Path
+import time
 
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -40,9 +41,12 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
 sp_oauth = SpotifyOAuth(
-    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
+    #client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    #client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+    #redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
+    client_id="efd10fafdac4485dbc62c7ab6bfc1867",
+    client_secret="5a5baa2c8d4f483e86b39105f782bec8",
+    redirect_uri="http://127.0.0.1:8000/callback",
     scope=(
         "streaming "
         "user-read-email "
@@ -121,9 +125,7 @@ def login():
 
 
 @app.get("/callback")
-def callback(request: Request):
-
-    code = request.query_params.get("code")
+def callback(code: str):
 
     token_info = sp_oauth.get_access_token(code)
 
@@ -133,19 +135,29 @@ def callback(request: Request):
 
 
 @app.get("/token")
-def get_token():
+def token():
 
-    token = spotify_tokens.get("token")
+    token_info = spotify_tokens.get("token")
 
-    if not token:
+    if not token_info:
         raise HTTPException(
             status_code=401,
-            detail="Spotify non autenticado"
+            detail="Spotify login required"
         )
+
+    if token_info["expires_at"] - time.time() < 300:
+
+        token_info = (
+            sp_oauth.refresh_access_token(
+                token_info["refresh_token"]
+            )
+        )
+
+        spotify_tokens["token"] = token_info
 
     return {
         "access_token":
-        token["access_token"]
+        token_info["access_token"]
     }
 
 

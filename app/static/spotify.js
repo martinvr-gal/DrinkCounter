@@ -1,6 +1,19 @@
 let player;
 let currentDeviceId;
 let interval;
+let currentCover = null;
+
+async function getToken() {
+
+  const res = await fetch("/token");
+
+  if (!res.ok) {
+    window.location.href="/login";
+    throw new Error();
+  }
+
+  return await res.json();
+}
 
 window.onSpotifyWebPlaybackSDKReady = async () => {
 
@@ -9,7 +22,13 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
 
   player = new Spotify.Player({
     name: "CubataCounter",
-    getOAuthToken: cb => cb(token.access_token)
+    getOAuthToken: async cb => {
+
+      const token = await getToken();
+
+      cb(token.access_token);
+
+    }
   });
 
   player.addListener('ready', async ({ device_id }) => {
@@ -33,6 +52,16 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
     });
 
   });
+
+  player.addListener("not_ready", () => {
+
+      console.log("Reconectando");
+
+      setTimeout(() => {
+        player.connect();
+      }, 3000);
+
+    });
 
   player.addListener('player_state_changed', (state) => {
     if (!state) return;
@@ -83,6 +112,13 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
         formatTime(state.position);
 
     }, 1000);
+
+    const nextCover = track.album.images[0].url;
+
+    if (currentCover !== nextCover) {
+      currentCover = nextCover;
+      updateBackground(nextCover);
+    }
   });
 
   await player.connect();
@@ -143,3 +179,31 @@ function formatTime(ms) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function updateBackground(url) {
+  const img = new Image();
+
+  img.crossOrigin = "anonymous";
+
+  img.src = url;
+
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = 1;
+    canvas.height = 1;
+    ctx.drawImage(img, 0, 0, 1, 1);
+
+    const c = ctx.getImageData(0, 0, 1, 1).data;
+    const color = `radial-gradient(circle, rgba(${c[0]},${c[1]},${c[2]},0.9), #121212)`;
+    const player = document.getElementById("player");
+
+    player.style.setProperty("--bg-next", color);
+    player.classList.add("fade");
+
+    setTimeout(() => {
+      player.style.setProperty("--bg-current", color);
+      player.classList.remove("fade");
+    }, 1500);
+  };
+}

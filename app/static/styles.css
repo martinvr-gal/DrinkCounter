@@ -481,6 +481,44 @@ input {
   align-items: stretch;
 }
 
+#player {
+	position: relative;
+	overflow: hidden;
+}
+
+#player::before,
+#player::after {
+	content: "";
+	position: absolute;
+	inset: -50px;
+	filter: blur(140px);
+	transition: opacity 1.5s ease, background 1.5s ease;
+	z-index: 0;
+}
+
+#player::before {
+	background: var(--bg-current, #121212);
+	opacity: 1;
+}
+
+#player::after {
+	background: var(--bg-next, #121212);
+	opacity: 0;
+}
+
+#player.fade::after {
+	opacity: .35;
+}
+
+#player.fade::before {
+	opacity: 0;
+}
+
+#player>* {
+	position: relative;
+	z-index: 1;
+}
+
 /* =========================
    PLAYLIST INFO
 ========================= */
