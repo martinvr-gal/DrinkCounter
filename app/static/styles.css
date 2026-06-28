@@ -357,20 +357,13 @@ input {
 
 .confirm-dialog {
   width: min(92vw, 420px);
-
   padding: 32px;
-
   border: 1px solid var(--border);
   border-radius: 28px;
-
   background: var(--panel);
-
   color: var(--text);
-
   backdrop-filter: blur(14px);
-
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
-
   overflow: hidden;
 }
 
@@ -378,7 +371,6 @@ input {
   background:
     radial-gradient(circle, rgba(56, 189, 248, 0.12), transparent),
     rgba(5, 8, 20, 0.72);
-
   backdrop-filter: blur(6px);
 }
 
@@ -572,6 +564,13 @@ input {
   text-transform: uppercase;
 }
 
+.tv-page #playlist-name {
+  text-align: left;
+  width: 100%;
+  align-self: flex-start;
+  margin-bottom: 12px;
+}
+
 /* =========================
    COVER IMAGE
 ========================= */
@@ -688,4 +687,204 @@ input {
 
 #play:hover {
   background: rgba(29, 185, 84, 0.35);
+}
+
+/* ==========================
+   ADMIN SPOTIFY
+========================== */
+
+.spotify-admin {
+  margin-top: 30px;
+}
+
+.spotify-admin h2 {
+  margin-bottom: 16px;
+}
+
+.spotify-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(20,20,20,.9);
+  color: white;
+}
+
+.spotify-info {
+  text-align: center;
+}
+
+#admin-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+#admin-artist {
+  opacity: .7;
+}
+
+.spotify-controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.spotify-controls button {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: #1DB954;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.spotify-controls button:active {
+  transform: scale(.96);
+}
+
+/* ==========================
+   EQUALIZER
+========================== */
+
+#equalizer {
+  display: flex;
+  justify-content: center;
+  align-items: end;
+  gap: 10px;
+  height: 70px;
+  margin-top: 20px;
+}
+
+#equalizer span {
+  width: 8px;
+  min-height: 10px;
+  border-radius: 999px;
+  background: #1DB954;
+  animation: equalizer 2200ms infinite ease-in-out;
+  transform-origin: bottom;
+}
+
+/* delays distintos */
+#equalizer span:nth-child(1){animation-delay:.1s;}
+#equalizer span:nth-child(2){animation-delay:.4s;}
+#equalizer span:nth-child(3){animation-delay:.8s;}
+#equalizer span:nth-child(4){animation-delay:.2s;}
+#equalizer span:nth-child(5){animation-delay:.5s;}
+#equalizer span:nth-child(6){animation-delay:.3s;}
+#equalizer span:nth-child(7){animation-delay:.9s;}
+#equalizer span:nth-child(8){animation-delay:.6s;}
+#equalizer span:nth-child(9){animation-delay:.2s;}
+#equalizer span:nth-child(10){animation-delay:.7s;}
+#equalizer span:nth-child(11){animation-delay:.4s;}
+#equalizer span:nth-child(12){animation-delay:.8s;}
+#equalizer span:nth-child(13){animation-delay:.1s;}
+#equalizer span:nth-child(14){animation-delay:.5s;}
+#equalizer span:nth-child(15){animation-delay:.3s;}
+
+@keyframes equalizer {
+  0% {
+    height: 12px;
+  }
+  20% {
+    height: 28px;
+  }
+  40% {
+    height: 60px;
+  }
+  60% {
+    height: 22px;
+  }
+  80% {
+    height: 46px;
+  }
+  100% {
+    height: 14px;
+  }
+}
+
+#equalizer.paused {
+  opacity: .3;
+}
+
+#equalizer.paused span {
+  animation-play-state: paused;
+}
+
+.spotify-player {
+  width: 100%;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tv-page #player {
+  all: unset;
+}
+
+.tv-page #player {
+  width: 100%;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.spotify-mini {
+  width: 100%;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tv-page #player {
+  text-align: center;
+  gap: 8px;
+}
+
+.tv-page #cover {
+  height: 240px;
+  object-fit: contain;
+}
+
+.spotify-mini {
+  gap: 12px;
+}
+
+#admin-cover {
+  width: 70%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  object-fit: cover;
+  border-radius: 16px;
+  display: block;
+  margin: 0 auto;
 }

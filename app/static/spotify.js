@@ -3,6 +3,22 @@ let currentDeviceId;
 let interval;
 let currentCover = null;
 
+function setText(id, value) {
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.textContent = value;
+  }
+}
+
+function setImage(id, value) {
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.src = value;
+  }
+}
+
 async function getToken() {
 
   const res = await fetch("/token");
@@ -15,10 +31,24 @@ async function getToken() {
   return await res.json();
 }
 
+async function loadPlaylistName() {
+  const token = await fetch("/token").then(r => r.json());
+
+  const data = await fetch(
+    "https://api.spotify.com/v1/playlists/0F9vXOWHObYhfiC7udX0do",
+    {
+      headers: {
+        Authorization: "Bearer " + token.access_token
+      }
+    }
+  ).then(r => r.json());
+
+  setText("admin-playlist-name", data.name);
+}
+
 window.onSpotifyWebPlaybackSDKReady = async () => {
 
-  const token = await fetch("/token")
-    .then(r => r.json());
+  const token = await fetch("/token").then(r => r.json());
 
   player = new Spotify.Player({
     name: "CubataCounter",
@@ -63,87 +93,88 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
 
     });
 
-  player.addListener('player_state_changed', (state) => {
+  player.addListener("player_state_changed", (state) => {
+
     if (!state) return;
 
     const track = state.track_window.current_track;
 
-    document.getElementById("title").textContent = track.name;
-    document.getElementById("artist").textContent =
-      track.artists.map(a => a.name).join(", ");
+    // TV
+    setText("title", track.name);
+    setText("artist", track.artists.map(a => a.name).join(", "));
+    setImage("cover", track.album.images[0].url);
 
-    document.getElementById("cover").src =
-      track.album.images[0].url;
+    // ADMIN
+    updateAdminPlayer(track, state.paused);
 
-    document.getElementById("play").textContent =
-      state.paused ? "▶" : "⏸";
-
-      if (!state) return;
-
-    const current = state.position;
-    const duration = state.duration;
-
-    const progressPercent = (current / duration) * 100;
-
-    document.getElementById("progress-bar").style.width =
-    progressPercent + "%";
-
-    // tempos
-    document.getElementById("current-time").textContent =
-    formatTime(current);
-
-    document.getElementById("total-time").textContent =
-    formatTime(duration);
-
+    // progreso TV
     clearInterval(interval);
 
-    interval = setInterval(() => {
+    const progressBar = document.getElementById("progress-bar");
 
-    if (!state || state.paused) return;
+    if (progressBar) {
+      let position = state.position;
+      const updateProgress = () => {
+        const progress = (position/state.duration) * 100;
+        progressBar.style.width = progress + "%";
+        setText("current-time", formatTime(position));
+        setText("total-time", formatTime(state.duration));
+      };
 
-    state.position += 1000;
+      updateProgress();
 
-    const progress = (state.position / state.duration) * 100;
+      if (!state.paused) {
+        interval = setInterval(
+          () => {
+            position += 1000;
 
-    document.getElementById("progress-bar").style.width =
-        progress + "%";
+            if (position > state.duration) {
+              clearInterval(interval);
+              return;
+            }
+            updateProgress();
+          },
+          1000
+        );
+      }
+    }
 
-    document.getElementById("current-time").textContent =
-        formatTime(state.position);
-
-    }, 1000);
-
+    // fondo
     const nextCover = track.album.images[0].url;
 
     if (currentCover !== nextCover) {
       currentCover = nextCover;
       updateBackground(nextCover);
     }
+
+    // ecualizador
+    const eq = document.getElementById("equalizer");
+
+    if(eq){
+      eq.classList.toggle("paused", state.paused);
+    }
   });
 
   await player.connect();
 };
 
-document.getElementById("play").onclick = async () => {
-
-  const res = await fetch("/has-token");
-  const data = await res.json();
-
-  if (!data.ok) {
-    window.location.href = "/login";
-    return;
+document.getElementById("admin-play")?.addEventListener("click", 
+  async ()=> {
+    await fetch("/api/spotify/play", { method:"POST" });
   }
+);
 
-  await player.togglePlay();
-};
+document.getElementById("admin-next")?.addEventListener("click",
+  async ()=> {
+    await fetch("/api/spotify/next", { method:"POST" });
+  }
+);
 
-document.getElementById("next").onclick = async () => {
-  await player.nextTrack();
-};
-
-document.getElementById("prev").onclick = async () => {
-  await player.previousTrack();
-};
+document.getElementById("admin-prev")?.addEventListener("click",
+  async ()=> {
+    await fetch("/api/spotify/prev", { method:"POST" });
+  }
+);
 
 async function setShuffle(state) {
   const token = await fetch("/token").then(r => r.json());
@@ -167,7 +198,7 @@ async function loadPlaylistInfo(token) {
 
   const data = await res.json();
 
-  document.getElementById("playlist-name").textContent = data.name;
+  setText("playlist-name", data.name);
 
   return data;
 }
@@ -198,6 +229,8 @@ function updateBackground(url) {
     const color = `radial-gradient(circle, rgba(${c[0]},${c[1]},${c[2]},0.9), #121212)`;
     const player = document.getElementById("player");
 
+    if(!player) return;
+
     player.style.setProperty("--bg-next", color);
     player.classList.add("fade");
 
@@ -207,3 +240,32 @@ function updateBackground(url) {
     }, 1500);
   };
 }
+
+function updateAdminPlayer(track, paused) {
+  const cover = document.getElementById("admin-cover");
+
+  if (!cover) return;
+
+  cover.src = track.album.images[0].url;
+  document.getElementById("admin-title").textContent = track.name;
+  document.getElementById("admin-artist").textContent = track.artists.map(a=>a.name).join(", ");
+  document.getElementById("admin-play").textContent = paused ? "▶" : "⏸";
+}
+
+async function syncSpotify(){
+
+  const res = await fetch("/api/spotify/state");
+
+  if(!res.ok){return;}
+
+  const state = await res.json();
+
+  if(!state) return;
+
+  updateAdminPlayer(state.item, !state.is_playing);
+
+}
+
+setInterval(syncSpotify, 1000);
+
+loadPlaylistName();

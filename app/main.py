@@ -20,6 +20,7 @@ from app.service import CounterService
 from fastapi.responses import RedirectResponse
 from starlette.requests import Request
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy import Spotify
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -124,9 +125,9 @@ def login():
 @app.get("/callback")
 def callback(code: str):
 
-    token_info = sp_oauth.get_access_token(code)
+    token_info = (sp_oauth.get_access_token(code))
 
-    spotify_tokens["token"] = token_info
+    spotify_tokens["token"] = (token_info)
 
     return RedirectResponse("/tv")
 
@@ -161,6 +162,66 @@ def token():
 @app.get("/has-token")
 def has_token():
     return {"ok": "token" in spotify_tokens}
+
+
+import time
+from spotipy import Spotify
+
+
+def get_spotify():
+
+    if "token" not in spotify_tokens:
+
+        raise HTTPException(401, "Spotify non autenticado")
+
+    token_info = (spotify_tokens["token"])
+
+    if (token_info["expires_at"] - time.time() < 300):
+        token_info = (sp_oauth.refresh_access_token(token_info["refresh_token"]))
+
+        spotify_tokens["token"] = token_info
+
+    return Spotify(auth=token_info["access_token"])
+
+
+@app.post("/api/spotify/play")
+def spotify_play():
+
+    sp = get_spotify()
+
+    playback = sp.current_playback()
+
+    if playback:
+        if (playback["is_playing"]):
+            sp.pause_playback()
+        else:
+            sp.start_playback()
+
+    return {"ok": True}
+
+
+@app.post("/api/spotify/next")
+def spotify_next():
+
+    get_spotify().next_track()
+
+    return {"ok": True}
+
+
+@app.post("/api/spotify/prev")
+def spotify_prev():
+
+    get_spotify().previous_track()
+
+    return {"ok":True}
+
+
+@app.get("/api/spotify/state")
+def spotify_state():
+
+    state = get_spotify().current_playback()
+
+    return state
 
 
 if __name__ == "__main__":

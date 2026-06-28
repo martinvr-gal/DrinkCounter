@@ -8,61 +8,79 @@
   </head>
   <body class="admin-page">
     <main class="shell">
-      <section class="panel">
-        <p class="eyebrow">Control móbil</p>
-        <h1>CubataCounter</h1>
+      <div class="main-layout">
+        <section class="panel">
+          <p class="eyebrow">Control móbil</p>
+          <h1>CubataCounter</h1>
 
-        <div class="counter-box">
-          <span class="counter-label">Valor actual</span>
-          <strong id="counter-value">0</strong>
-        </div>
+          <div class="counter-box">
+            <span class="counter-label">Valor actual</span>
+            <strong id="counter-value">0</strong>
+          </div>
 
-        <div class="quick-increments" aria-label="Incrementos rápidos">
-          <button data-action="increment-fixed" data-amount="1">+1</button>
-          <button data-action="increment-fixed" data-amount="2">+2</button>
-          <button data-action="increment-fixed" data-amount="3">+3</button>
-          <button data-action="increment-fixed" data-amount="4">+4</button>
-          <button data-action="increment-fixed" data-amount="5">+5</button>
-          <button data-action="increment-fixed" data-amount="6">+6</button>
-          <button data-action="increment-fixed" data-amount="7">+7</button>
-          <button data-action="increment-fixed" data-amount="8">+8</button>
-          <button data-action="increment-fixed" data-amount="9">+9</button>
-          <button data-action="increment-fixed" data-amount="10">+10</button>
-        </div>
+          <div class="quick-increments" aria-label="Incrementos rápidos">
+            <button data-action="increment-fixed" data-amount="1">+1</button>
+            <button data-action="increment-fixed" data-amount="2">+2</button>
+            <button data-action="increment-fixed" data-amount="3">+3</button>
+            <button data-action="increment-fixed" data-amount="4">+4</button>
+            <button data-action="increment-fixed" data-amount="5">+5</button>
+            <button data-action="increment-fixed" data-amount="6">+6</button>
+            <button data-action="increment-fixed" data-amount="7">+7</button>
+            <button data-action="increment-fixed" data-amount="8">+8</button>
+            <button data-action="increment-fixed" data-amount="9">+9</button>
+            <button data-action="increment-fixed" data-amount="10">+10</button>
+          </div>
 
-        <div class="quick-custom">
-          <label>
-            Cantidade personalizada
-            <div class="quick-custom-row">
-              <input id="amount" type="number" min="11" value="11" />
-              <button class="primary-action" data-action="increment-custom">Sumar</button>
+          <div class="quick-custom">
+            <label>
+              Cantidade personalizada
+              <div class="quick-custom-row">
+                <input id="amount" type="number" min="11" value="11" />
+                <button class="primary-action" data-action="increment-custom">Sumar</button>
+              </div>
+            </label>
+          </div>
+
+          <details class="advanced">
+            <summary>Opcións avanzadas</summary>
+
+            <div class="grid">
+              <label>
+                Cantidade para restar
+                <input id="decrement-value" type="number" min="1" value="1" />
+              </label>
+
+              <label>
+                Valor para setear
+                <input id="set-value" type="number" min="0" value="0" />
+              </label>
             </div>
-          </label>
-        </div>
 
-        <details class="advanced">
-          <summary>Opcións avanzadas</summary>
+            <div class="actions">
+              <button data-action="decrement">Restar</button>
+              <button data-action="set">Setear</button>
+            </div>
+          </details>
 
-          <div class="grid">
-            <label>
-              Cantidade para restar
-              <input id="decrement-value" type="number" min="1" value="1" />
-            </label>
+          <p id="message" class="message"></p>
+        </section>
 
-            <label>
-              Valor para setear
-              <input id="set-value" type="number" min="0" value="0" />
-            </label>
+        <section class="spotify">
+          <div class="spotify-mini">
+            <div id="admin-playlist-name">—</div>
+            <img id="admin-cover">
+            <div class="spotify-info">
+              <div id="admin-title">—</div>
+              <div id="admin-artist">—</div>
+            </div>
+            <div class="spotify-controls">
+              <button id="admin-prev">⏮</button>
+              <button id="admin-play">▶</button>
+              <button id="admin-next">⏭</button>
+            </div>
           </div>
-
-          <div class="actions">
-            <button data-action="decrement">Restar</button>
-            <button data-action="set">Setear</button>
-          </div>
-        </details>
-
-        <p id="message" class="message"></p>
-      </section>
+        </section>
+      </div>
     </main>
 
     <dialog id="confirm-dialog" class="confirm-dialog">
@@ -81,5 +99,6 @@
     </dialog>
 
     <script src="/static/app.js"></script>
+    <script src="/static/spotify.js"></script>
   </body>
 </html>
