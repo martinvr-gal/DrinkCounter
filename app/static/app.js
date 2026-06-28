@@ -30,14 +30,114 @@ function setMessage(text, isError = false) {
   message.dataset.state = isError ? "error" : "ok";
 }
 
+const ODOMETER_DIGITS = 5;
+const DIGIT_HEIGHT_EM = 1;
+
+function createDigitColumn(start, end, delay = 0) {
+  const digit = document.createElement("div");
+  digit.className = "digit";
+
+  const track = document.createElement("div");
+  track.className = "digit-track";
+
+  let sequence = [];
+
+  start = Number(start);
+  end = Number(end);
+
+  sequence.push(start);
+
+  let current = start;
+
+  while (current !== end) {
+    current = (current + 1) % 10;
+    sequence.push(current);
+  }
+
+  sequence.forEach((n) => {
+    const cell = document.createElement("div");
+    cell.textContent = n;
+    track.appendChild(cell);
+  });
+
+  track.style.transitionDelay = `${delay}ms`;
+
+  digit.appendChild(track);
+
+  requestAnimationFrame(() => {
+    track.style.transform =
+      `translateY(-${(sequence.length - 1) * DIGIT_HEIGHT_EM}em)`;
+  });
+
+  return digit;
+}
+
+function updateOdometer(nextValue) {
+  const current =
+    Number(counterValue.dataset.value || 0);
+
+  const oldString =
+    String(current).padStart(
+      ODOMETER_DIGITS,
+      "0"
+    );
+
+  const newString =
+    String(nextValue).padStart(
+      ODOMETER_DIGITS,
+      "0"
+    );
+
+  counterValue.innerHTML = "";
+
+  const digits = [];
+
+  for (let i = 0; i < ODOMETER_DIGITS; i++) {
+    const reverse =
+      ODOMETER_DIGITS - i - 1;
+
+    const delay =
+      reverse * 120;
+
+    digits.push(
+      createDigitColumn(
+        oldString[i],
+        newString[i],
+        delay
+      )
+    );
+  }
+
+  digits.forEach((d) =>
+    counterValue.appendChild(d)
+  );
+
+  counterValue.dataset.value =
+    nextValue;
+}
+
 function handleCounterValue(nextValue) {
   if (Number.isNaN(nextValue)) {
     return;
   }
 
-  if (counterValue) {
-    counterValue.textContent = nextValue;
+  if (!counterValue) {
+    return;
   }
+
+  // TV → odómetro
+  if (
+    counterValue.classList.contains(
+      "odometer"
+    )
+  ) {
+    updateOdometer(nextValue);
+    return;
+  }
+
+  // ADMIN → estilo antigo
+  counterValue.textContent =
+    nextValue;
 }
 
 async function refreshCounter() {

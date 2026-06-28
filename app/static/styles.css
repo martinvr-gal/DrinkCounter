@@ -133,6 +133,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.03);
+  font-size: 8rem;
 }
 
 .counter-box span,
@@ -163,6 +164,46 @@ label {
 .counter-display strong {
   font-size: clamp(5rem, 20vw, 10rem);
   line-height: 0.92;
+}
+
+/* ===== TV ODOMETER ===== */
+
+.tv-page .odometer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25em;
+  font-weight: 700;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.tv-page .digit {
+  position: relative;
+  width: 0.545em;
+  height: 1em;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.tv-page .digit-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transition:
+    transform 600ms
+    cubic-bezier(.18,.85,.22,1);
+}
+
+.tv-page .digit-track div {
+  width: 100%;
+  height: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font: inherit;
 }
 
 .tv-note {
