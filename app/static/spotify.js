@@ -64,7 +64,6 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
   player.addListener('ready', async ({ device_id }) => {
 
     currentDeviceId = device_id;
-    isReady = true;
 
     const token = await fetch("/token").then(r => r.json());
 
@@ -210,36 +209,54 @@ function formatTime(ms) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function updateBackground(url) {
+async function extractGradientFromCover(url) {
   const img = new Image();
-
   img.crossOrigin = "anonymous";
 
-  img.src = url;
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = url;
+  });
 
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
 
-    canvas.width = 1;
-    canvas.height = 1;
-    ctx.drawImage(img, 0, 0, 1, 1);
+  canvas.width = 1;
+  canvas.height = 1;
+  ctx.drawImage(img, 0, 0, 1, 1);
 
-    const c = ctx.getImageData(0, 0, 1, 1).data;
-    const color = `radial-gradient(circle, rgba(${c[0]},${c[1]},${c[2]},0.9), #121212)`;
-    const player = document.getElementById("player");
-
-    if(!player) return;
-
-    player.style.setProperty("--bg-next", color);
-    player.classList.add("fade");
-
-    setTimeout(() => {
-      player.style.setProperty("--bg-current", color);
-      player.classList.remove("fade");
-    }, 1500);
-  };
+  const c = ctx.getImageData(0, 0, 1, 1).data;
+  return `radial-gradient(circle, rgba(${c[0]},${c[1]},${c[2]},0.9), #121212)`;
 }
+
+function transitionBackground(element, color) {
+  element.style.setProperty("--bg-next", color);
+  element.classList.add("fade");
+
+  setTimeout(() => {
+    element.style.setProperty("--bg-current", color);
+    element.classList.remove("fade");
+  }, 1500);
+}
+
+async function updateBackground(url) {
+  const player = document.getElementById("player");
+  if (!player) return;
+
+  const color = await extractGradientFromCover(url);
+  transitionBackground(player, color);
+}
+
+async function updateAdminBackground(url) {
+  const spotifyMini = document.querySelector(".spotify-mini");
+  if (!spotifyMini) return;
+
+  const color = await extractGradientFromCover(url);
+  transitionBackground(spotifyMini, color);
+}
+
+let currentAdminCover = null;
 
 function updateAdminPlayer(track, paused) {
   const cover = document.getElementById("admin-cover");
@@ -250,6 +267,14 @@ function updateAdminPlayer(track, paused) {
   document.getElementById("admin-title").textContent = track.name;
   document.getElementById("admin-artist").textContent = track.artists.map(a=>a.name).join(", ");
   document.getElementById("admin-play").textContent = paused ? "▶" : "⏸";
+
+  if (track.album && track.album.images && track.album.images[0] && track.album.images[0].url) {
+    const nextCover = track.album.images[0].url;
+    if (currentAdminCover !== nextCover) {
+      currentAdminCover = nextCover;
+      updateAdminBackground(nextCover);
+    }
+  }
 }
 
 async function syncSpotify(){

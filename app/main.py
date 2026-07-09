@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import sys, os
-from pathlib import Path
+import os
+import sys
 import time
+from pathlib import Path
 
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -16,9 +17,6 @@ from starlette.requests import Request
 
 from app.schemas import CounterChangeRequest, CounterResponse, CounterSetRequest
 from app.service import CounterService
-
-from fastapi.responses import RedirectResponse
-from starlette.requests import Request
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy import Spotify
 
@@ -28,7 +26,16 @@ DB_PATH = DATA_DIR / "counter.db"
 TEMPLATES_DIR = BASE_DIR / "app" / "templates"
 STATIC_DIR = BASE_DIR / "app" / "static"
 
-spotify_tokens = {}
+_spotify_tokens: dict = {}
+
+
+def _get_spotify_token_info() -> dict | None:
+    return _spotify_tokens.get("token")
+
+
+def _set_spotify_token_info(token_info: dict) -> None:
+    _spotify_tokens["token"] = token_info
+
 
 app = FastAPI(title="DrinkCounter")
 app.add_middleware(
@@ -42,9 +49,9 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
 sp_oauth = SpotifyOAuth(
-    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
+    client_id=os.getenv("SPOTIFY_CLIENT_ID", "efd10fafdac4485dbc62c7ab6bfc1867"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET", "5a5baa2c8d4f483e86b39105f782bec8"),
+    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/callback"),
     scope=(
         "streaming "
         "user-read-email "
@@ -125,9 +132,9 @@ def login():
 @app.get("/callback")
 def callback(code: str):
 
-    token_info = (sp_oauth.get_access_token(code))
+    token_info = sp_oauth.get_access_token(code)
 
-    spotify_tokens["token"] = (token_info)
+    _set_spotify_token_info(token_info)
 
     return RedirectResponse("/tv")
 
@@ -135,7 +142,7 @@ def callback(code: str):
 @app.get("/token")
 def token():
 
-    token_info = spotify_tokens.get("token")
+    token_info = _get_spotify_token_info()
 
     if not token_info:
         raise HTTPException(
@@ -161,25 +168,20 @@ def token():
 
 @app.get("/has-token")
 def has_token():
-    return {"ok": "token" in spotify_tokens}
-
-
-import time
-from spotipy import Spotify
+    return {"ok": _get_spotify_token_info() is not None}
 
 
 def get_spotify():
 
-    if "token" not in spotify_tokens:
+    token_info = _get_spotify_token_info()
 
+    if not token_info:
         raise HTTPException(401, "Spotify non autenticado")
 
-    token_info = (spotify_tokens["token"])
+    if token_info["expires_at"] - time.time() < 300:
+        token_info = sp_oauth.refresh_access_token(token_info["refresh_token"])
 
-    if (token_info["expires_at"] - time.time() < 300):
-        token_info = (sp_oauth.refresh_access_token(token_info["refresh_token"]))
-
-        spotify_tokens["token"] = token_info
+        _set_spotify_token_info(token_info)
 
     return Spotify(auth=token_info["access_token"])
 

@@ -60,13 +60,17 @@ function createDigitColumn(start, end, delay = 0) {
     track.appendChild(cell);
   });
 
+  track.style.willChange = "transform";
+  track.style.transform = "translateY(0)";
   track.style.transitionDelay = `${delay}ms`;
 
   digit.appendChild(track);
 
   requestAnimationFrame(() => {
-    track.style.transform =
-      `translateY(-${(sequence.length - 1) * DIGIT_HEIGHT_EM}em)`;
+    requestAnimationFrame(() => {
+      track.style.transform =
+        `translateY(-${(sequence.length - 1) * DIGIT_HEIGHT_EM}em)`;
+    });
   });
 
   return digit;

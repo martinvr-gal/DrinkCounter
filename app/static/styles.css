@@ -103,9 +103,39 @@ h1 {
   margin: 0;
   font-size: clamp(2.6rem, 8vw, 4.6rem);
 }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
 
-.tv-stage h1 {
-  font-size: clamp(2.8rem, 7vw, 5rem);
+.brand-icon {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 16px;
+  flex-shrink: 0;
+}
+
+.brand h1 {
+  font-size: clamp(2.2rem, 6.75vw, 4.2rem);
+}
+
+.tv-stage .brand {
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+  gap: 14px;
+}
+
+.tv-stage .brand-icon {
+  width: 72px;
+  height: 72px;
+}
+
+.tv-stage .brand h1 {
+  font-size: clamp(2.4rem, 7vw, 4.4rem);
 }
 
 .lead {
@@ -497,10 +527,12 @@ input {
   justify-content: center;
   align-items: center;
   margin-top: 30px;
+  min-width: 0;
 }
 
 #player {
   width: 360px;
+  max-width: 100%;
   background: rgba(18, 18, 18, 0.85);
   backdrop-filter: blur(12px);
   border-radius: 18px;
@@ -512,6 +544,11 @@ input {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  min-width: 0;
+}
+
+#player > * {
+  min-width: 0;
 }
 
 #player {
@@ -693,35 +730,30 @@ input {
    ADMIN SPOTIFY
 ========================== */
 
-.spotify-admin {
-  margin-top: 30px;
-}
-
-.spotify-admin h2 {
-  margin-bottom: 16px;
-}
-
-.spotify-mini {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 20px;
-  background: rgba(20,20,20,.9);
-  color: white;
-}
 
 .spotify-info {
   text-align: center;
+  width: 100%;
+  min-width: 0;
 }
 
 #admin-title {
   font-size: 18px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
 }
 
 #admin-artist {
   opacity: .7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .spotify-controls {
@@ -813,22 +845,6 @@ input {
   animation-play-state: paused;
 }
 
-.spotify-player {
-  width: 100%;
-  background: rgba(18, 18, 18, 0.85);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding: 20px;
-  position: relative;
-  overflow: hidden;
-}
-
 .tv-page #player {
   all: unset;
 }
@@ -863,6 +879,40 @@ input {
   padding: 20px;
   position: relative;
   overflow: hidden;
+  gap: 12px;
+}
+
+.spotify-mini::before,
+.spotify-mini::after {
+  content: "";
+	position: absolute;
+	inset: -50px;
+	filter: blur(140px);
+	transition: opacity 2.2s ease, background 2.2s ease;
+	z-index: 0;
+}
+
+.spotify-mini::before {
+  background: var(--bg-current, #121212);
+	opacity: 1;
+}
+
+.spotify-mini::after {
+  background: var(--bg-next, #121212);
+	opacity: 0;
+}
+
+.spotify-mini.fade::after {
+  opacity: 0.35;
+}
+
+.spotify-mini.fade::before {
+  opacity: 0;
+}
+
+.spotify-mini > * {
+  position: relative;
+  z-index: 1;
 }
 
 .tv-page #player {
@@ -873,10 +923,6 @@ input {
 .tv-page #cover {
   height: 240px;
   object-fit: contain;
-}
-
-.spotify-mini {
-  gap: 12px;
 }
 
 #admin-cover {
