@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="spotify-playlist-id" content="{{ spotify_playlist_id }}" />
     <title>DrinkCounter Admin</title>
     <link rel="stylesheet" href="/static/styles.css" />
     <link rel="icon" href="/static/favicon.ico" />
@@ -81,6 +82,13 @@
               <button id="admin-prev">⏮</button>
               <button id="admin-play">▶</button>
               <button id="admin-next">⏭</button>
+            </div>
+
+            <div class="track-picker">
+              <label>Escoller canción de playlist</label>
+              <div class="track-picker-row">
+                <div id="track-list" class="track-list" aria-live="polite"></div>
+              </div>
             </div>
           </div>
         </section>

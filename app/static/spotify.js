@@ -1,7 +1,12 @@
+const SPOTIFY_PLAYLIST_ID = document.querySelector('meta[name="spotify-playlist-id"]')?.content || "";
+
 let player;
 let currentDeviceId;
 let interval;
 let currentCover = null;
+let selectedTrackUri = null;
+let currentTrackUri = null;
+let currentTrackKey = null;
 
 function setText(id, value) {
   const el = document.getElementById(id);
@@ -35,7 +40,7 @@ async function loadPlaylistName() {
   const token = await fetch("/token").then(r => r.json());
 
   const data = await fetch(
-    "https://api.spotify.com/v1/playlists/0F9vXOWHObYhfiC7udX0do",
+    `https://api.spotify.com/v1/playlists/${SPOTIFY_PLAYLIST_ID}`,
     {
       headers: {
         Authorization: "Bearer " + token.access_token
@@ -44,6 +49,38 @@ async function loadPlaylistName() {
   ).then(r => r.json());
 
   setText("admin-playlist-name", data.name);
+  await loadPlaylistTracks();
+}
+
+async function startPlaylistPlayback(deviceId) {
+  if (!deviceId || !SPOTIFY_PLAYLIST_ID) return;
+
+  const token = await getToken();
+  const headers = {
+    Authorization: `Bearer ${token.access_token}`,
+    "Content-Type": "application/json"
+  };
+
+  await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      context_uri: `spotify:playlist:${SPOTIFY_PLAYLIST_ID}`,
+      position_ms: 0
+    })
+  });
+
+  await fetch(`https://api.spotify.com/v1/me/player/shuffle?state=true&device_id=${deviceId}`, {
+    method: "PUT",
+    headers
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 700));
+
+  await fetch(`https://api.spotify.com/v1/me/player/shuffle?state=true&device_id=${deviceId}`, {
+    method: "PUT",
+    headers
+  });
 }
 
 window.onSpotifyWebPlaybackSDKReady = async () => {
@@ -68,17 +105,7 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
     const token = await fetch("/token").then(r => r.json());
 
     await loadPlaylistInfo(token.access_token);
-
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${device_id}`, {
-      method: "PUT",
-      headers: {
-        Authorization: "Bearer " + token.access_token,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        context_uri: "spotify:playlist:0F9vXOWHObYhfiC7udX0do"
-      })
-    });
+    await startPlaylistPlayback(device_id);
 
   });
 
@@ -99,6 +126,8 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
     const track = state.track_window.current_track;
 
     // TV
+    currentTrackUri = track.uri || "";
+    currentTrackKey = normalizeTrackKey(track.id || currentTrackUri);
     setText("title", track.name);
     setText("artist", track.artists.map(a => a.name).join(", "));
     setImage("cover", track.album.images[0].url);
@@ -146,6 +175,10 @@ window.onSpotifyWebPlaybackSDKReady = async () => {
       updateBackground(nextCover);
     }
 
+    if (!state.shuffle) {
+      setShuffle(true).catch(() => {});
+    }
+
     // ecualizador
     const eq = document.getElementById("equalizer");
 
@@ -169,6 +202,7 @@ document.getElementById("admin-next")?.addEventListener("click",
   }
 );
 
+
 document.getElementById("admin-prev")?.addEventListener("click",
   async ()=> {
     await fetch("/api/spotify/prev", { method:"POST" });
@@ -187,9 +221,7 @@ async function setShuffle(state) {
 }
 
 async function loadPlaylistInfo(token) {
-  const playlistId = "0F9vXOWHObYhfiC7udX0do";
-
-  const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+  const res = await fetch(`https://api.spotify.com/v1/playlists/${SPOTIFY_PLAYLIST_ID}`, {
     headers: {
       Authorization: "Bearer " + token
     }
@@ -200,6 +232,126 @@ async function loadPlaylistInfo(token) {
   setText("playlist-name", data.name);
 
   return data;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function normalizeTrackKey(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  if (text.startsWith("spotify:track:")) {
+    return text.split(":").pop();
+  }
+  return text;
+}
+
+function updateTrackSelection(list, uri) {
+  const targetKey = normalizeTrackKey(uri);
+  const items = list.querySelectorAll(".track-list-item");
+  items.forEach((item) => {
+    const itemKey = normalizeTrackKey(item.dataset.id || item.dataset.uri || item.dataset.trackKey);
+    const isPlaying = itemKey === currentTrackKey;
+    item.classList.toggle("currently-playing", isPlaying);
+  });
+}
+
+function updateTrackClickSelection(list, uri) {
+  const targetKey = normalizeTrackKey(uri);
+  const items = list.querySelectorAll(".track-list-item");
+  items.forEach((item) => {
+    const itemKey = normalizeTrackKey(item.dataset.id || item.dataset.uri || item.dataset.trackKey);
+    const isSelected = itemKey === targetKey;
+    item.classList.toggle("selected", isSelected);
+  });
+}
+
+async function loadPlaylistTracks() {
+  const list = document.getElementById("track-list");
+  if (!list) return;
+
+  list.replaceChildren();
+  const loadingMessage = document.createElement("div");
+  loadingMessage.className = "track-list-empty";
+  loadingMessage.textContent = "Cargando cancións…";
+  list.appendChild(loadingMessage);
+
+  try {
+    const res = await fetch("/api/spotify/playlist-tracks");
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.error || "Non se puideron cargar as cancións da playlist.");
+    }
+
+    list.replaceChildren();
+
+    if (!data.tracks?.length) {
+      const emptyMessage = document.createElement("div");
+      emptyMessage.className = "track-list-empty";
+      emptyMessage.textContent = "Non hai cancións dispoñibles nesta playlist.";
+      list.appendChild(emptyMessage);
+      selectedTrackUri = null;
+      return;
+    }
+
+    data.tracks.forEach((track) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "track-list-item";
+      button.dataset.uri = track.uri || "";
+      button.dataset.id = normalizeTrackKey(track.uri || track.id || "");
+      button.innerHTML = `
+        <span class="track-list-title">${escapeHtml(track.name)}</span>
+        <span class="track-list-meta">${escapeHtml(track.artists.join(", "))}</span>
+      `;
+
+      button.addEventListener("dblclick", async () => {
+        selectedTrackUri = track.uri;
+        updateTrackClickSelection(list, selectedTrackUri);
+        await playSelectedTrack();
+      });
+
+      button.addEventListener("click", () => {
+        selectedTrackUri = track.uri;
+        updateTrackClickSelection(list, selectedTrackUri);
+      });
+
+      list.appendChild(button);
+    });
+
+    if (currentTrackKey) {
+      updateTrackSelection(list, currentTrackKey);
+      selectedTrackUri = currentTrackUri || data.tracks[0]?.uri || "";
+    } else if (!selectedTrackUri && data.tracks[0]?.uri) {
+      selectedTrackUri = data.tracks[0].uri;
+      updateTrackSelection(list, selectedTrackUri);
+    }
+
+  } catch (error) {
+    list.innerHTML = `<div class="track-list-empty">${escapeHtml(error.message || "Non se puideron cargar as cancións.")}</div>`;
+    selectedTrackUri = null;
+  }
+}
+
+async function playSelectedTrack() {
+  const list = document.getElementById("track-list");
+  const uri = selectedTrackUri || list?.querySelector(".track-list-item.selected")?.dataset.uri;
+  if (!uri) return;
+
+  await fetch("/api/spotify/play-track", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ uri }),
+  });
 }
 
 function formatTime(ms) {
@@ -262,6 +414,14 @@ function updateAdminPlayer(track, paused) {
   const cover = document.getElementById("admin-cover");
 
   if (!cover) return;
+
+  currentTrackUri = track.uri || "";
+  currentTrackKey = normalizeTrackKey(track.id || currentTrackUri);
+
+  const trackList = document.getElementById("track-list");
+  if (trackList) {
+    updateTrackSelection(trackList, currentTrackKey);
+  }
 
   cover.src = track.album.images[0].url;
   document.getElementById("admin-title").textContent = track.name;

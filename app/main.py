@@ -11,15 +11,22 @@ if __package__ is None or __package__ == "":
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from app.schemas import CounterChangeRequest, CounterResponse, CounterSetRequest
+from app.schemas import (
+    CounterChangeRequest,
+    CounterResponse,
+    CounterSetRequest,
+    PlayTrackRequest,
+)
 from app.service import CounterService
+from app.spotify_config import SPOTIFY_DEFAULT_PLAYLIST
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy import Spotify
+from spotipy.exceptions import SpotifyException
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -53,15 +60,17 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
 sp_oauth = SpotifyOAuth(
-    client_id=os.getenv("SPOTIFY_CLIENT_ID", "efd10fafdac4485dbc62c7ab6bfc1867"),
-    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET", "5a5baa2c8d4f483e86b39105f782bec8"),
-    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/callback"),
+    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
     scope=(
         "streaming "
         "user-read-email "
         "user-read-private "
         "user-modify-playback-state "
-        "user-read-playback-state"
+        "user-read-playback-state "
+        "playlist-read-private "
+        "playlist-read-collaborative"
     )
 )
 
@@ -77,12 +86,20 @@ def root() -> RedirectResponse:
 
 @app.get("/tv", response_class=HTMLResponse)
 def tv(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request=request, name="tv.html", context={})
+    return templates.TemplateResponse(
+        request=request,
+        name="tv.html",
+        context={"spotify_playlist_id": SPOTIFY_DEFAULT_PLAYLIST},
+    )
 
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request=request, name="admin.html", context={})
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html",
+        context={"spotify_playlist_id": SPOTIFY_DEFAULT_PLAYLIST},
+    )
 
 
 @app.get("/api/counter", response_model=CounterResponse)
@@ -162,7 +179,7 @@ def token():
             )
         )
 
-        spotify_tokens["token"] = token_info
+        _spotify_tokens["token"] = token_info
 
     return {
         "access_token":
@@ -228,6 +245,111 @@ def spotify_state():
     state = get_spotify().current_playback()
 
     return state
+
+
+@app.get("/api/spotify/debug")
+def spotify_debug_info():
+    token_info = _get_spotify_token_info() or {}
+    scopes = []
+    if token_info.get("scope"):
+        scopes = [scope.strip() for scope in token_info["scope"].split(" ") if scope.strip()]
+
+    return {
+        "token_present": bool(token_info),
+        "scope": token_info.get("scope", ""),
+        "scopes": scopes,
+        "playlist_id": SPOTIFY_DEFAULT_PLAYLIST
+    }
+
+
+@app.get("/api/spotify/playlist-tracks")
+def spotify_playlist_tracks():
+
+    sp = get_spotify()
+    playlist_id = SPOTIFY_DEFAULT_PLAYLIST
+
+    playlist_array = []
+
+    try:
+        playlist = sp.playlist_items(
+            playlist_id,
+            limit=100,
+            offset=0
+        )
+        
+        while playlist.get("next"):
+            playlist_array.append(playlist)
+            playlist = sp.next(playlist)
+    except SpotifyException:
+        try:
+            user_playlists = sp.current_user_playlists(limit=20)
+            fallback_playlist = next(
+                (
+                    item.get("id")
+                    for item in user_playlists.get("items", [])
+                    if item.get("id")
+                ),
+                None,
+            )
+            if not fallback_playlist:
+                raise SpotifyException(404, -1, "No playlists found")
+
+            playlist_id = fallback_playlist
+            playlist = sp.playlist_items(
+                playlist_id,
+                fields="items(track(name,uri,artists(name),album(name),duration_ms)),total",
+                additional_types=["track"],
+                limit=100,
+                offset=0
+            )
+        
+            playlist_array.append(playlist)
+            while playlist.get("next"):
+                playlist = sp.next(playlist)
+        except SpotifyException as exc:
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "playlist_id": playlist_id,
+                    "tracks": [],
+                    "error": str(exc)
+                }
+            )
+    
+    tracks = []
+    for playlist in playlist_array + [playlist]:
+        for item in playlist.get("items", []):
+            track = item.get("track") or item.get("item")
+            if not track:
+                continue
+            tracks.append({
+                "name": track.get("name"),
+                "uri": track.get("uri"),
+                "artists": [artist.get("name") for artist in track.get("artists", []) if artist.get("name")],
+                "album": track.get("album", {}).get("name") if isinstance(track.get("album"), dict) else None,
+                "duration_ms": track.get("duration_ms"),
+            })
+
+    return {
+        "playlist_id": playlist_id,
+        "tracks": tracks,
+    }
+
+
+@app.post("/api/spotify/play-track")
+def spotify_play_track(payload: PlayTrackRequest):
+
+    sp = get_spotify()
+    sp.start_playback(
+        context_uri=f"spotify:playlist:{SPOTIFY_DEFAULT_PLAYLIST}",
+        offset={"uri": payload.uri},
+    )
+    try:
+        sp.shuffle(True)
+    except Exception:
+        pass
+
+    return {"ok": True}
 
 
 @app.get("/api/clips")

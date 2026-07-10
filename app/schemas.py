@@ -11,3 +11,7 @@ class CounterChangeRequest(BaseModel):
 
 class CounterSetRequest(BaseModel):
     value: int = Field(ge=0)
+
+
+class PlayTrackRequest(BaseModel):
+    uri: str
