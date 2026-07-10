@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 if __package__ is None or __package__ == "":
     sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -25,6 +26,7 @@ DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "counter.db"
 TEMPLATES_DIR = BASE_DIR / "app" / "templates"
 STATIC_DIR = BASE_DIR / "app" / "static"
+CLIPS_DIR = STATIC_DIR / "clips"
 
 _spotify_tokens: dict = {}
 
@@ -45,6 +47,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if CLIPS_DIR.exists() and CLIPS_DIR.is_dir():
+    app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 service = CounterService(DB_PATH)
 
@@ -224,6 +228,41 @@ def spotify_state():
     state = get_spotify().current_playback()
 
     return state
+
+
+@app.get("/api/clips")
+def list_clips():
+
+    if not CLIPS_DIR.exists() or not CLIPS_DIR.is_dir():
+        return []
+
+    clips = []
+    for clip_path in sorted(CLIPS_DIR.iterdir()):
+        if not clip_path.is_file():
+            continue
+
+        if clip_path.suffix.lower() not in {".mp4", ".webm", ".mov", ".m4v"}:
+            continue
+
+        clips.append(f"/clips/{quote(clip_path.name)}")
+
+    return clips
+
+
+@app.post("/api/spotify/pause")
+def spotify_pause():
+
+    get_spotify().pause_playback()
+
+    return {"ok": True}
+
+
+@app.post("/api/spotify/resume")
+def spotify_resume():
+
+    get_spotify().start_playback()
+
+    return {"ok": True}
 
 
 if __name__ == "__main__":

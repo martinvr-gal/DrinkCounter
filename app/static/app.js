@@ -5,6 +5,12 @@ const setValueInput = document.getElementById("set-value");
 const message = document.getElementById("message");
 const hasControls = Boolean(document.querySelector("[data-action]"));
 
+const CLIP_STORAGE_KEY = "tv_shown_clips";
+let clipUrls = [];
+let shownClips = new Set();
+let currentClipUrl = null;
+let lastCounterValue = null;
+
 async function requestJson(url, method, body) {
   const response = await fetch(url, {
     method,
@@ -144,12 +150,132 @@ function handleCounterValue(nextValue) {
     nextValue;
 }
 
+async function loadClipUrls() {
+  try {
+    const response = await fetch("/api/clips");
+    if (!response.ok) {
+      return;
+    }
+
+    clipUrls = await response.json();
+    const saved = localStorage.getItem(CLIP_STORAGE_KEY);
+
+    if (saved) {
+      shownClips = new Set(saved.split(",").filter(Boolean));
+    }
+  } catch {
+    clipUrls = [];
+  }
+}
+
+function saveShownClips() {
+  localStorage.setItem(CLIP_STORAGE_KEY, [...shownClips].join(","));
+}
+
+function pickNextClip() {
+  if (!clipUrls.length) {
+    return null;
+  }
+
+  const available = clipUrls.filter((url) => !shownClips.has(url));
+  const pool = available.length ? available : clipUrls;
+
+  if (!available.length) {
+    shownClips.clear();
+  }
+
+  const choice = pool[Math.floor(Math.random() * pool.length)];
+  shownClips.add(choice);
+  saveShownClips();
+
+  return choice;
+}
+
+async function pauseSpotifyPlayback() {
+  try {
+    await fetch("/api/spotify/pause", { method: "POST" });
+  } catch {
+    // ignore failures
+  }
+}
+
+async function resumeSpotifyPlayback() {
+  try {
+    await fetch("/api/spotify/resume", { method: "POST" });
+  } catch {
+    // ignore failures
+  }
+}
+
+async function showClip(clipUrl) {
+  if (currentClipUrl) {
+    return;
+  }
+
+  const overlay = document.getElementById("clip-overlay");
+  const video = document.getElementById("clip-player");
+
+  if (!overlay || !video) {
+    return;
+  }
+
+  currentClipUrl = clipUrl;
+  overlay.hidden = false;
+  video.src = clipUrl;
+  video.currentTime = 0;
+  video.muted = false;
+
+  await pauseSpotifyPlayback();
+
+  video.onended = async () => {
+    overlay.hidden = true;
+    currentClipUrl = null;
+    video.src = "";
+    await resumeSpotifyPlayback();
+  };
+
+  try {
+    await video.play();
+  } catch {
+    // If autoplay fails, we still keep the overlay visible
+  }
+}
+
+async function maybeTriggerClip(nextValue) {
+  if (currentClipUrl || nextValue <= 0 || lastCounterValue === null) {
+    return;
+  }
+
+  if (nextValue <= lastCounterValue) {
+    return;
+  }
+
+  const previousMultiple = Math.floor(lastCounterValue / 100);
+  const currentMultiple = Math.floor(nextValue / 100);
+
+  if (currentMultiple <= previousMultiple) {
+    return;
+  }
+
+  if (!clipUrls.length) {
+    await loadClipUrls();
+  }
+
+  const clipUrl = pickNextClip();
+  if (clipUrl) {
+    await showClip(clipUrl);
+  }
+}
+
 async function refreshCounter() {
   const response = await fetch("/api/counter");
   const payload = await response.json();
   const nextValue = Number(payload.value);
 
   handleCounterValue(nextValue);
+  await maybeTriggerClip(nextValue);
+  lastCounterValue = nextValue;
+
   return nextValue;
 }
 
@@ -244,6 +370,10 @@ setInterval(() => {
     }
   });
 }, 2000);
+
+loadClipUrls().catch(() => {
+  /* clip metadata not critical */
+});
 
 async function showConfirmation(currentValue, futureValue) {
   const dialog = document.getElementById("confirm-dialog");
