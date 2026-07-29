@@ -1,0 +1,6 @@
+.env
+uploads/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
