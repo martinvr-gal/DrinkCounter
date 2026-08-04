@@ -14,7 +14,7 @@ services:
   backend:
     build: ./backend
     env_file: .env
-    volumes: [./uploads:/app/uploads]
+    volumes: [./uploads:/app/uploads, ./counter-data:/app/counter-data, ./clips:/app/clips]
     depends_on:
       db: { condition: service_healthy }
     ports: ["8000:8000"]

@@ -1,21 +1,25 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
+from spotipy.exceptions import SpotifyException
 from .auth import admin_required, create_token
 from .config import get_settings
+from .counter import CounterService
 from .database import Base, engine, get_db
 from .models import ImageStatus, Photo
-from .schemas import LoginRequest, PhotoOut, PhotoPage, StatusChange, Token
+from .schemas import CounterChangeRequest, CounterResponse, CounterSetRequest, LoginRequest, PlayTrackRequest, PhotoOut, PhotoPage, StatusChange, Token
+from .spotify import SpotifyService
 from .storage import LocalStorage
 from .websocket import manager
 
 logging.basicConfig(level=logging.INFO, format='{"time":"%(asctime)s","level":"%(levelname)s","message":"%(message)s"}')
-settings = get_settings(); storage = LocalStorage(settings.upload_folder)
+settings = get_settings(); storage = LocalStorage(settings.upload_folder); counter_service = CounterService(settings.counter_database_path); spotify_service = SpotifyService(settings)
 app = FastAPI(title="Photo Gallery API", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in settings.cors_origins.split(",")], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -35,6 +39,22 @@ def page_query(db: Session, image_status: ImageStatus | None, page: int, page_si
 
 @app.get("/health")
 def health(): return {"status": "ok"}
+
+@app.get("/api/counter", response_model=CounterResponse)
+def read_counter() -> CounterResponse:
+    return CounterResponse(value=counter_service.get_counter())
+
+@app.post("/api/counter/increment", response_model=CounterResponse)
+def increment_counter(payload: CounterChangeRequest, _=Depends(admin_required)) -> CounterResponse:
+    return CounterResponse(value=counter_service.increment(payload.amount))
+
+@app.post("/api/counter/decrement", response_model=CounterResponse)
+def decrement_counter(payload: CounterChangeRequest, _=Depends(admin_required)) -> CounterResponse:
+    return CounterResponse(value=counter_service.decrement(payload.amount))
+
+@app.post("/api/counter/set", response_model=CounterResponse)
+def set_counter(payload: CounterSetRequest, _=Depends(admin_required)) -> CounterResponse:
+    return CounterResponse(value=counter_service.set_counter(payload.value))
 
 @app.post("/upload", response_model=PhotoOut, status_code=status.HTTP_201_CREATED)
 async def upload(user_name: str = Query(min_length=1, max_length=120), image: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -91,6 +111,132 @@ def image_file(folder: str, filename: str):
     if folder not in {"pending", "approved", "rejected"} or Path(filename).name != filename: raise HTTPException(404)
     path = settings.upload_folder / folder / filename
     if not path.is_file(): raise HTTPException(404)
+    return FileResponse(path)
+
+@app.get("/admin/spotify/login")
+def spotify_login(_=Depends(admin_required)):
+    return RedirectResponse(spotify_service.authorize_url())
+
+@app.get("/admin/spotify/callback")
+def spotify_callback(code: str, state: str):
+    spotify_service.exchange_code(code, state)
+    return RedirectResponse("/admin")
+
+@app.get("/api/spotify/has-token")
+def spotify_has_token(_=Depends(admin_required)):
+    return {"ok": spotify_service.has_token()}
+
+@app.get("/api/spotify/debug")
+def spotify_debug_info(_=Depends(admin_required)):
+    return spotify_service.debug_info()
+
+@app.get("/api/spotify/token")
+def spotify_token(_=Depends(admin_required)):
+    return {"access_token": spotify_service.access_token()}
+
+@app.post("/api/spotify/play")
+def spotify_play(_=Depends(admin_required)):
+    client = spotify_service.client()
+    playback = client.current_playback()
+    if playback:
+        if playback.get("is_playing"):
+            client.pause_playback()
+        else:
+            client.start_playback()
+    return {"ok": True}
+
+@app.post("/api/spotify/pause")
+def spotify_pause(_=Depends(admin_required)):
+    spotify_service.client().pause_playback()
+    return {"ok": True}
+
+@app.post("/api/spotify/resume")
+def spotify_resume(_=Depends(admin_required)):
+    spotify_service.client().start_playback()
+    return {"ok": True}
+
+@app.post("/api/spotify/next")
+def spotify_next(_=Depends(admin_required)):
+    spotify_service.client().next_track()
+    return {"ok": True}
+
+@app.post("/api/spotify/prev")
+def spotify_previous(_=Depends(admin_required)):
+    spotify_service.client().previous_track()
+    return {"ok": True}
+
+@app.get("/api/spotify/state")
+def spotify_state():
+    return spotify_service.client().current_playback()
+
+@app.get("/api/spotify/playlist-tracks")
+def spotify_playlist_tracks():
+    client = spotify_service.client()
+    playlist_id = settings.spotify_default_playlist
+    if not playlist_id:
+        raise HTTPException(400, "Configura SPOTIFY_DEFAULT_PLAYLIST para listar las pistas.")
+    try:
+        playlist_pages = []
+        page = client.playlist_items(playlist_id, limit=100, offset=0)
+        while page.get("next"):
+            playlist_pages.append(page)
+            page = client.next(page)
+    except SpotifyException:
+        try:
+            user_playlists = client.current_user_playlists(limit=20)
+            fallback_playlist = next((item.get("id") for item in user_playlists.get("items", []) if item.get("id")), None)
+            if not fallback_playlist:
+                raise SpotifyException(404, -1, "No hay listas de reproducción disponibles")
+            playlist_id = fallback_playlist
+            playlist_pages = []
+            page = client.playlist_items(playlist_id, limit=100, offset=0)
+            while page.get("next"):
+                playlist_pages.append(page)
+                page = client.next(page)
+        except SpotifyException as exc:
+            return JSONResponse(status_code=502, content={"playlist_id": playlist_id, "tracks": [], "error": str(exc)})
+    tracks = []
+    for playlist_page in playlist_pages + [page]:
+        for item in playlist_page.get("items", []):
+            track = item.get("track") or item.get("item")
+            if not track:
+                continue
+            tracks.append({
+                "name": track.get("name"),
+                "uri": track.get("uri"),
+                "artists": [artist.get("name") for artist in track.get("artists", []) if artist.get("name")],
+                "album": track.get("album", {}).get("name") if isinstance(track.get("album"), dict) else None,
+                "duration_ms": track.get("duration_ms"),
+            })
+    return {"playlist_id": playlist_id, "tracks": tracks}
+
+@app.post("/api/spotify/play-track")
+def spotify_play_track(payload: PlayTrackRequest, _=Depends(admin_required)):
+    playlist_id = settings.spotify_default_playlist
+    if not playlist_id:
+        raise HTTPException(400, "Configura SPOTIFY_DEFAULT_PLAYLIST para reproducir una pista.")
+    client = spotify_service.client()
+    client.start_playback(context_uri=f"spotify:playlist:{playlist_id}", offset={"uri": payload.uri})
+    try:
+        client.shuffle(True)
+    except SpotifyException:
+        logging.warning("No se pudo activar el modo aleatorio de Spotify.")
+    return {"ok": True}
+
+@app.get("/api/clips")
+def list_clips():
+    if not settings.clips_folder.is_dir():
+        return []
+    extensions = {".mp4", ".webm", ".mov", ".m4v"}
+    return [f"/clips/{quote(path.name)}" for path in sorted(settings.clips_folder.iterdir()) if path.is_file() and path.suffix.lower() in extensions]
+
+@app.get("/clips/{filename}")
+def clip_file(filename: str):
+    if Path(filename).name != filename:
+        raise HTTPException(404)
+    path = settings.clips_folder / filename
+    if not path.is_file() or path.suffix.lower() not in {".mp4", ".webm", ".mov", ".m4v"}:
+        raise HTTPException(404)
     return FileResponse(path)
 
 @app.websocket("/ws")
