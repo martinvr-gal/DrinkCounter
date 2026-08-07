@@ -37,7 +37,7 @@ def page_query(db: Session, image_status: ImageStatus | None, page: int, page_si
     records = db.scalars(select(Photo).where(*where).order_by(direction).offset((page-1)*page_size).limit(page_size)).all()
     return PhotoPage(items=[serialize(p) for p in records], total=total, page=page, page_size=page_size)
 
-@app.get("/health")
+@app.get("/api/health")
 def health(): return {"status": "ok"}
 
 @app.get("/api/counter", response_model=CounterResponse)
@@ -56,7 +56,7 @@ def decrement_counter(payload: CounterChangeRequest, _=Depends(admin_required)) 
 def set_counter(payload: CounterSetRequest, _=Depends(admin_required)) -> CounterResponse:
     return CounterResponse(value=counter_service.set_counter(payload.value))
 
-@app.post("/upload", response_model=PhotoOut, status_code=status.HTTP_201_CREATED)
+@app.post("/api/upload", response_model=PhotoOut, status_code=status.HTTP_201_CREATED)
 async def upload(user_name: str = Query(min_length=1, max_length=120), image: UploadFile = File(...), db: Session = Depends(get_db)):
     allowed = {"image/jpeg", "image/png", "image/webp", "image/heic"}
     if image.content_type not in allowed: raise HTTPException(415, "Formato no permitido. Usa JPG, PNG, WebP o HEIC.")
@@ -68,12 +68,12 @@ async def upload(user_name: str = Query(min_length=1, max_length=120), image: Up
     db.add(photo); db.commit(); db.refresh(photo)
     return serialize(photo)
 
-@app.post("/admin/login", response_model=Token)
+@app.post("/api/admin/login", response_model=Token)
 def login(payload: LoginRequest):
     if payload.username != settings.admin_username or payload.password != settings.admin_password: raise HTTPException(401, "Credenciales incorrectas")
     return Token(access_token=create_token(payload.username))
 
-@app.get("/admin/pending", response_model=PhotoPage)
+@app.get("/api/admin/pending", response_model=PhotoPage)
 def pending(page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=100), _=Depends(admin_required), db: Session = Depends(get_db)):
     return page_query(db, ImageStatus.PENDING, page, page_size, None, "asc")
 
@@ -90,34 +90,34 @@ async def change_photo(photo_id: int, payload: StatusChange, db: Session, target
     await manager.broadcast({"type": "photo.updated", "photo": response.model_dump(mode="json")})
     return response
 
-@app.post("/admin/approve/{photo_id}", response_model=PhotoOut)
+@app.post("/api/admin/approve/{photo_id}", response_model=PhotoOut)
 async def approve(photo_id: int, payload: StatusChange, db: Session = Depends(get_db), _=Depends(admin_required)): return await change_photo(photo_id, payload, db, ImageStatus.APPROVED)
-@app.post("/admin/reject/{photo_id}", response_model=PhotoOut)
+@app.post("/api/admin/reject/{photo_id}", response_model=PhotoOut)
 async def reject(photo_id: int, payload: StatusChange, db: Session = Depends(get_db), _=Depends(admin_required)): return await change_photo(photo_id, payload, db, ImageStatus.REJECTED)
 
-@app.post("/admin/status/{photo_id}", response_model=PhotoOut)
+@app.post("/api/admin/status/{photo_id}", response_model=PhotoOut)
 async def set_status(photo_id: int, payload: StatusChange, db: Session = Depends(get_db), _=Depends(admin_required)):
     """Move a photo between any moderation folders while preserving its history."""
     return await change_photo(photo_id, payload, db, payload.status)
 
-@app.get("/gallery/{gallery_status}", response_model=PhotoPage)
+@app.get("/api/gallery/{gallery_status}", response_model=PhotoPage)
 def gallery(gallery_status: str, page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=100), search: str | None = None, order: str = Query("desc", pattern="^(asc|desc)$"), db: Session = Depends(get_db)):
     try: target = None if gallery_status == "all" else ImageStatus(gallery_status.upper())
     except ValueError: raise HTTPException(404, "Estado no válido")
     return page_query(db, target, page, page_size, search, order)
 
-@app.get("/images/{folder}/{filename}")
+@app.get("/api/images/{folder}/{filename}")
 def image_file(folder: str, filename: str):
     if folder not in {"pending", "approved", "rejected"} or Path(filename).name != filename: raise HTTPException(404)
     path = settings.upload_folder / folder / filename
     if not path.is_file(): raise HTTPException(404)
     return FileResponse(path)
 
-@app.get("/admin/spotify/login")
+@app.get("/api/admin/spotify/login")
 def spotify_login(_=Depends(admin_required)):
     return RedirectResponse(spotify_service.authorize_url())
 
-@app.get("/admin/spotify/callback")
+@app.get("/api/admin/spotify/callback")
 def spotify_callback(code: str, state: str):
     spotify_service.exchange_code(code, state)
     return RedirectResponse("/admin")
@@ -228,9 +228,9 @@ def list_clips():
     if not settings.clips_folder.is_dir():
         return []
     extensions = {".mp4", ".webm", ".mov", ".m4v"}
-    return [f"/clips/{quote(path.name)}" for path in sorted(settings.clips_folder.iterdir()) if path.is_file() and path.suffix.lower() in extensions]
+    return [f"/api/clips/{quote(path.name)}" for path in sorted(settings.clips_folder.iterdir()) if path.is_file() and path.suffix.lower() in extensions]
 
-@app.get("/clips/{filename}")
+@app.get("/api/clips/{filename}")
 def clip_file(filename: str):
     if Path(filename).name != filename:
         raise HTTPException(404)
@@ -239,7 +239,7 @@ def clip_file(filename: str):
         raise HTTPException(404)
     return FileResponse(path)
 
-@app.websocket("/ws")
+@app.websocket("/api/ws")
 async def websocket(ws: WebSocket):
     await manager.connect(ws)
     try:

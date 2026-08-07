@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clips, counter, gallery, imageUrl } from "../services/api";
 import type { Photo } from "../types";
+import Odometer from "../components/Odometer";
 
 const wsUrl = (import.meta.env.VITE_WS_URL || "ws://localhost:8000") + "/ws";
 const seconds = Number(import.meta.env.VITE_TV_INTERVAL_SECONDS || 10);
@@ -54,5 +55,5 @@ export default function Tv() {
   }, [currentClip]);
 
   const photo: Photo | undefined = images[index];
-  return <main className="tv-screen"><section className="tv-gallery">{photo && <><img src={imageUrl(photo.url)} alt={`Fotografía de ${photo.user_name}`} className="tv-photo"/><div className="tv-photo-author">{photo.user_name}</div></>}{!photo && <p className="tv-empty">Esperando fotografías…</p>}</section><aside className="tv-counter" aria-live="polite" aria-label={`Contador: ${counterData?.value || 0}`}><span className="tv-counter-label">Contador</span><strong className="tv-counter-value">{counterData?.value || 0}</strong></aside>{currentClip && <div className="tv-clip-overlay"><video ref={video} src={imageUrl(currentClip)} playsInline onEnded={() => setCurrentClip(null)} /></div>}</main>;
+  return <main className="tv-screen"><section className="tv-gallery">{photo && <><img src={imageUrl(photo.url)} alt={`Fotografía de ${photo.user_name}`} className="tv-photo"/><div className="tv-photo-author">{photo.user_name}</div></>}{!photo && <p className="tv-empty">Esperando fotografías…</p>}</section><aside className="tv-counter" aria-label={`Contador: ${counterData?.value || 0}`}><span className="tv-counter-label">Contador</span><Odometer value={counterData?.value || 0} className="tv-counter-value" /></aside>{currentClip && <div className="tv-clip-overlay"><video ref={video} src={currentClip} playsInline onEnded={() => setCurrentClip(null)} /></div>}</main>;
 }

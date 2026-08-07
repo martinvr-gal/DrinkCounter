@@ -29,7 +29,7 @@ export default function Upload() {
     const data = new FormData();
     data.append("image", file);
     try {
-      await api.post("/upload", data, {
+      await api.post("upload", data, {
         params: { user_name: name.trim() },
         onUploadProgress: (event) => setProgress(Math.round((event.loaded * 100) / (event.total || 1))),
       });

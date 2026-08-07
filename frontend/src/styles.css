@@ -113,7 +113,8 @@ body {
     border-left: 1px solid rgb(255 255 255 / 18%);
     background: linear-gradient(160deg, #1c1a43, #080814 70%);
     color: #fff;
-    text-align: center
+    text-align: center;
+    container-type: inline-size
 }
 
 .tv-counter-label {
@@ -121,12 +122,6 @@ body {
     font-weight: 700;
     letter-spacing: .15em;
     text-transform: uppercase
-}
-
-.tv-counter-value {
-    font-size: clamp(5rem, 14vw, 15rem);
-    font-variant-numeric: tabular-nums;
-    line-height: 1
 }
 
 .tv-clip-overlay {
@@ -153,7 +148,7 @@ body {
     min-height: 100dvh;
     place-items: center;
     padding: 1.5rem;
-    background: radial-gradient(circle at top, #3b2a0b 0, #09090b 55%)
+    background: radial-gradient(circle at top, #17223a 0, #07101f 62%)
 }
 
 .counter-login form { display: grid; width: min(100%, 25rem); gap: .8rem }
@@ -161,31 +156,63 @@ body {
 
 .counter-card {
     display: grid;
-    width: min(100%, 42rem);
-    gap: 1.5rem;
-    padding: clamp(1.5rem, 5vw, 3.5rem);
-    border: 1px solid #52525b;
+    width: min(100%, 48rem);
+    gap: 1.15rem;
+    padding: clamp(1.5rem, 5vw, 2rem);
+    border: 1px solid #25324a;
     border-radius: 1.5rem;
-    background: #18181b;
+    background: #0d172a;
     box-shadow: 0 24px 80px rgb(0 0 0 / 40%);
-    text-align: center
+    text-align: center;
+    container-type: inline-size
 }
 
-.counter-card > p { margin: 0; color: #d4d4d8; font-size: clamp(1.1rem, 2.5vw, 1.7rem); font-weight: 800; text-transform: uppercase; letter-spacing: .1em }
-.counter-card > strong { color: #fff; font-size: clamp(7rem, 22vw, 14rem); font-variant-numeric: tabular-nums; line-height: .9 }
+.counter-card > p { margin: 0; color: #b7c7ea; font-size: clamp(1.1rem, 2.5vw, 1.7rem); font-weight: 800; text-transform: uppercase; letter-spacing: .1em }
+.odometer-value { display: flex; justify-content: center; min-width: 0; color: #f4f6ff; font-size: clamp(3.25rem, calc(88cqw / var(--digits)), 10rem); font-variant-numeric: tabular-nums; line-height: 1; overflow: hidden }
+.counter-card .odometer-value { padding: .3rem 1.25rem; border: 1px solid #25324a; border-radius: 1.2rem; background: #141e32 }
+.tv-counter .odometer-value { width: 100%; font-size: clamp(3.5rem, calc(88cqw / var(--digits)), 15rem) }
+.odometer-digit { display: inline-block; width: .62em; height: 1em; overflow: hidden; text-align: center }
+.odometer-track { display: block; width: 100%; line-height: 1em; letter-spacing: 0; transform: translateY(calc(var(--digit) * -1em)); transition: transform 520ms cubic-bezier(.22, .8, .24, 1); will-change: transform }
+.odometer-track > span { display: block; height: 1em }
 .counter-button { border: 0; border-radius: .7rem; cursor: pointer }
 .counter-button:disabled { cursor: wait; opacity: .65 }
-.counter-button.subtract { justify-self: center; padding: .6rem .9rem; border: 1px solid #52525b; background: #27272a; color: #d4d4d8; font-size: .8rem; font-weight: 700 }
-.counter-button.subtract:hover { border-color: #a1a1aa; background: #3f3f46; color: #fff }
+.counter-button.subtract { min-height: 3rem; background: #fb6b83; color: #1c0b10; font-size: .9rem; font-weight: 800 }
+.counter-button.subtract:hover { background: #ff8397 }
+.counter-button.set { min-height: 3rem; background: #22c55e; color: #04120a; font-size: .9rem; font-weight: 800 }
+.counter-button.set:hover { background: #3cdd76 }
 .counter-button:active { transform: scale(.98) }
 .counter-amounts { display: grid; grid-template-columns: repeat(5, 1fr); gap: .65rem }
-.counter-amount { min-height: 3.6rem; border: 0; border-radius: .75rem; background: #15803d; color: #fff; font-size: 1.15rem; font-weight: 800; cursor: pointer }
+.counter-amount { min-height: 2.7rem; border: 1px solid #334155; border-radius: .75rem; background: #202b3f; color: #eef3ff; font-size: .95rem; font-weight: 800; cursor: pointer }
+.counter-amount:hover { background: #2a3850 }
 .counter-amount:disabled,.counter-custom-button:disabled { cursor: wait; opacity: .65 }
 .counter-amount:active,.counter-custom-button:active { transform: scale(.98) }
 .counter-custom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem }
-.counter-custom-button { border: 0; border-radius: .7rem; padding: .75rem 1rem; background: #f59e0b; color: #18181b; font-weight: 800; cursor: pointer }
+.counter-custom-button { border: 0; border-radius: .7rem; padding: .75rem 2rem; background: #38bdf8; color: #06131e; font-weight: 800; cursor: pointer }
 .counter-back { position: fixed; top: 1.5rem; left: 1.5rem; color: #f4f4f5; font-weight: 700; text-decoration: none }
 .counter-error { color: #fca5a5 !important; font-size: .9rem !important; letter-spacing: normal !important; text-transform: none !important }
+.counter-advanced { border: 1px solid #293852; border-radius: 1.2rem; background: #121d30; overflow: hidden; text-align: left }
+.counter-advanced-toggle { width: 100%; border: 0; padding: 1rem 1.1rem; background: transparent; color: #edf2ff; font-size: 1rem; font-weight: 800; text-align: left; cursor: pointer }
+.counter-advanced-toggle:hover { background: rgb(255 255 255 / 4%) }
+.counter-corrections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; padding: 0 1.1rem 1.1rem }
+.counter-corrections label { display: grid; gap: .45rem; color: #b7c7ea; font-size: .9rem }
+.counter-corrections .input { border-color: #334155; background: #1b263a; padding: .7rem }
+.counter-modal-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: rgb(1 7 18 / 70%); backdrop-filter: blur(4px) }
+.counter-modal { width: min(100%, 31rem); padding: 1.5rem; border: 1px solid #334155; border-radius: 1.1rem; background: #121d30; box-shadow: 0 24px 80px rgb(0 0 0 / 45%) }
+.counter-modal h2 { margin: 0; color: #f4f6ff; font-size: 1.35rem }
+.counter-modal p { margin: .75rem 0 1.4rem; color: #c9d6ef; line-height: 1.5 }
+.counter-modal > div { display: flex; justify-content: flex-end; gap: .65rem }
+.counter-modal button { border: 0; border-radius: .7rem; padding: .7rem 1rem; font-weight: 800; cursor: pointer }
+.counter-modal-cancel { background: #263247; color: #edf2ff }
+.counter-modal-confirm { background: #38bdf8; color: #06131e }
+
+@media (max-width: 500px) {
+    .counter-corrections { grid-template-columns: 1fr; grid-template-areas: "subtract-input" "subtract-action" "set-input" "set-action" }
+    .counter-corrections label:nth-child(1) { grid-area: subtract-input }
+    .counter-corrections .subtract { grid-area: subtract-action }
+    .counter-corrections label:nth-child(2) { grid-area: set-input }
+    .counter-corrections .set { grid-area: set-action }
+    .counter-corrections .counter-button { min-height: 2.8rem }
+}
 
 @media (max-width: 700px) {
     .tv-screen { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto }
