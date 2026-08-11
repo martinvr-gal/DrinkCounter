@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="gl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="spotify-playlist-id" content="{{ spotify_playlist_id }}" />
+    <title>DrinkCounter TV</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="icon" href="/static/favicon.ico" />
+  </head>
+
+  <body class="tv-page">
+    <main class="tv-shell">
+
+      <div class="main-layout">
+
+        <section class="tv-stage">
+          <div class="brand">
+            <img class="brand-icon" src="/static/icono_comision.png" alt="Icono de CubataCounter" />
+            <h1>CubataCounter</h1>
+          </div>
+
+          <div class="counter-display" aria-live="polite" aria-atomic="true">
+            <span>Número de cubatas vendidos</span>
+            <div id="counter-value" class="odometer"></div>
+          </div>
+        </section>
+
+        <div id="clip-overlay" class="clip-overlay" hidden>
+          <video id="clip-player" playsinline muted></video>
+        </div>
+
+        <section class="spotify">
+          <div id="player">
+            <div id="playlist-name">—</div>
+            <img id="cover" />
+            <div id="title">—</div>
+            <div id="artist">—</div>
+
+            <div id="progress-container">
+              <div id="progress-bar"></div>
+            </div>
+
+            <div id="time">
+              <span id="current-time">0:00</span>
+              <span id="total-time">0:00</span>
+            </div>
+
+            <div id="equalizer">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </main>
+
+    <script src="/static/app.js"></script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="/static/spotify.js"></script>
+  </body>
+</html>

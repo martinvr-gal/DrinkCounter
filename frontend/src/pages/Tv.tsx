@@ -1,33 +1,56 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { clips, counter, gallery, imageUrl } from "../services/api";
+import { clips, counter, gallery, imageUrl, pauseSpotifyForClip, resumeSpotifyAfterClip, spotifyState } from "../services/api";
 import type { Photo } from "../types";
 import Odometer from "../components/Odometer";
 
 const wsUrl = (import.meta.env.VITE_WS_URL || "ws://localhost:8000") + "/ws";
 const seconds = Number(import.meta.env.VITE_TV_INTERVAL_SECONDS || 10);
 const clipStorageKey = "shown-tv-clips";
+const photoStorageKey = "last-shown-tv-photo";
+const equalizerBars = [42, 58, 31, 66, 38, 54, 72, 27, 62, 34, 55, 30, 48, 39, 64];
+
+function duration(value?: number) {
+  const total = Math.max(0, Math.floor((value || 0) / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
 
 export default function Tv() {
   const queryClient = useQueryClient();
   const { data } = useQuery({ queryKey: ["tv"], queryFn: () => gallery("approved") });
   const { data: counterData } = useQuery({ queryKey: ["tv-counter"], queryFn: counter, refetchInterval: 2000 });
   const { data: clipUrls = [] } = useQuery({ queryKey: ["tv-clips"], queryFn: clips });
-  const [index, setIndex] = useState(0);
+  const { data: playback } = useQuery({ queryKey: ["tv-spotify"], queryFn: spotifyState, refetchInterval: 2000, retry: false });
+  const [index, setIndex] = useState<number | null>(null);
   const [currentClip, setCurrentClip] = useState<string | null>(null);
   const lastCounterValue = useRef<number | null>(null);
+  const restoredPhoto = useRef(false);
   const shownClips = useRef(new Set(localStorage.getItem(clipStorageKey)?.split(",").filter(Boolean) || []));
   const video = useRef<HTMLVideoElement>(null);
+  const resumeAfterClip = useRef(false);
   const images = data?.items || [];
 
   useEffect(() => {
-    const id = setInterval(() => setIndex(current => images.length ? (current + 1) % images.length : 0), seconds * 1000);
+    if (!images.length) {
+      setIndex(null);
+      return;
+    }
+    if (restoredPhoto.current) return;
+
+    restoredPhoto.current = true;
+    const lastPhotoId = Number(localStorage.getItem(photoStorageKey));
+    const lastIndex = images.findIndex(photo => photo.id === lastPhotoId);
+    setIndex(lastIndex === -1 ? 0 : (lastIndex + 1) % images.length);
+  }, [images]);
+
+  useEffect(() => {
+    const id = setInterval(() => setIndex(current => images.length ? ((current ?? -1) + 1) % images.length : null), seconds * 1000);
     return () => clearInterval(id);
   }, [images.length]);
 
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
-    ws.onmessage = () => queryClient.invalidateQueries({ queryKey: ["tv"] });
+    ws.onmessage = () => { queryClient.invalidateQueries({ queryKey: ["tv"] }); queryClient.invalidateQueries({ queryKey: ["tv-clips"] }); };
     return () => ws.close();
   }, [queryClient]);
 
@@ -49,11 +72,27 @@ export default function Tv() {
 
   useEffect(() => {
     if (!currentClip || !video.current) return;
-    video.current.currentTime = 0;
-    video.current.muted = false;
-    video.current.play().catch(() => undefined);
+    const clip = video.current;
+    clip.currentTime = 0;
+    clip.muted = false;
+    void pauseSpotifyForClip()
+      .then(result => { resumeAfterClip.current = result.resume_after_clip; })
+      .catch(() => { resumeAfterClip.current = false; })
+      .finally(() => { clip.play().catch(() => undefined); });
   }, [currentClip]);
 
-  const photo: Photo | undefined = images[index];
-  return <main className="tv-screen"><section className="tv-gallery">{photo && <><img src={imageUrl(photo.url)} alt={`Fotografía de ${photo.user_name}`} className="tv-photo"/><div className="tv-photo-author">{photo.user_name}</div></>}{!photo && <p className="tv-empty">Esperando fotografías…</p>}</section><aside className="tv-counter" aria-label={`Contador: ${counterData?.value || 0}`}><span className="tv-counter-label">Contador</span><Odometer value={counterData?.value || 0} className="tv-counter-value" /></aside>{currentClip && <div className="tv-clip-overlay"><video ref={video} src={currentClip} playsInline onEnded={() => setCurrentClip(null)} /></div>}</main>;
+  function finishClip() {
+    const shouldResume = resumeAfterClip.current;
+    resumeAfterClip.current = false;
+    setCurrentClip(null);
+    if (shouldResume) void resumeSpotifyAfterClip(true).catch(() => undefined);
+  }
+
+  const photo: Photo | undefined = index === null ? undefined : images[index];
+  useEffect(() => {
+    if (photo) localStorage.setItem(photoStorageKey, String(photo.id));
+  }, [photo]);
+  const track = playback?.item;
+  const progress = Math.min(100, ((playback?.progress_ms || 0) / (track?.duration_ms || 1)) * 100);
+  return <main className="tv-screen"><section className="tv-gallery">{photo && <><img src={imageUrl(photo.url)} alt={`Fotografía de ${photo.user_name}`} className="tv-photo"/><div className="tv-photo-author">{photo.user_name}</div></>}{!photo && <p className="tv-empty">Esperando fotografías…</p>}</section><aside className="tv-sidebar"><div className="tv-counter" aria-label={`Contador: ${counterData?.value || 0}`}><div className="tv-counter-panel"><span className="tv-counter-label">Contador</span><Odometer value={counterData?.value || 0} className="tv-counter-value" /></div></div><section className="tv-spotify-player" aria-label="Reproductor de Spotify"><p className="tv-spotify-brand">Nosa Señora 2026 Celas</p><div className="tv-spotify-main">{track?.album?.images?.[0]?.url ? <img src={track.album.images[0].url} alt="Portada del álbum" className="tv-spotify-art" /> : <div className="tv-spotify-art tv-spotify-placeholder">♪</div>}<div className="tv-spotify-copy"><h2>{track?.name || "Spotify preparado"}</h2><p>{track?.artists?.map(artist => artist.name).join(", ") || "Abre Spotify en un dispositivo para reproducir"}</p><div className="tv-spotify-progress" aria-label={`${duration(playback?.progress_ms)} de ${duration(track?.duration_ms)}`}><span style={{ width: `${progress}%` }} /></div><div className="tv-spotify-times"><span>{duration(playback?.progress_ms)}</span><span>{duration(track?.duration_ms)}</span></div></div></div><div className={`tv-equalizer ${playback?.is_playing ? "is-playing" : ""}`} aria-label={playback?.is_playing ? "Reproduciendo" : "En pausa"}>{equalizerBars.map((height, index) => <i key={index} style={{ "--bar-height": `${height}%`, "--bar-delay": `${index * 90}ms` } as CSSProperties} />)}</div></section></aside>{currentClip && <div className="tv-clip-overlay"><video ref={video} src={currentClip} playsInline onEnded={finishClip} onError={finishClip} /></div>}</main>;
 }

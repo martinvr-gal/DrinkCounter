@@ -24,7 +24,18 @@ app = FastAPI(title="Photo Gallery API", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in settings.cors_origins.split(",")], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 @app.on_event("startup")
-def startup() -> None: Base.metadata.create_all(bind=engine)
+def startup() -> None:
+    Base.metadata.create_all(bind=engine)
+    settings.clips_folder.mkdir(parents=True, exist_ok=True)
+    if not spotify_service.has_token() or not settings.spotify_autoplay:
+        return
+    try:
+        if spotify_service.start_default_playlist():
+            logging.info("Se solicitó iniciar la playlist configurada de Spotify.")
+    except Exception as exc:
+        # No stop the gallery if Spotify is temporarily unavailable or there is
+        # no active playback device. The controls remain available to retry.
+        logging.warning("No se pudo iniciar Spotify automáticamente: %s", exc)
 
 def image_url(photo: Photo) -> str: return f"/images/{photo.status.value.lower()}/{photo.stored_filename}"
 def serialize(photo: Photo) -> PhotoOut:
@@ -117,10 +128,18 @@ def image_file(folder: str, filename: str):
 def spotify_login(_=Depends(admin_required)):
     return RedirectResponse(spotify_service.authorize_url())
 
+@app.get("/api/admin/spotify/authorize-url")
+def spotify_authorize_url(_=Depends(admin_required)):
+    return {"url": spotify_service.authorize_url()}
+
 @app.get("/api/admin/spotify/callback")
 def spotify_callback(code: str, state: str):
     spotify_service.exchange_code(code, state)
-    return RedirectResponse("/admin")
+    try:
+        spotify_service.start_default_playlist()
+    except Exception as exc:
+        logging.warning("No se pudo iniciar Spotify tras la autorización: %s", exc)
+    return RedirectResponse("/spotify")
 
 @app.get("/api/spotify/has-token")
 def spotify_has_token(_=Depends(admin_required)):
@@ -169,34 +188,34 @@ def spotify_previous(_=Depends(admin_required)):
 def spotify_state():
     return spotify_service.client().current_playback()
 
+@app.post("/api/spotify/tv/clip-pause")
+def spotify_pause_for_tv_clip():
+    return {"resume_after_clip": spotify_service.pause_for_clip()}
+
+@app.post("/api/spotify/tv/clip-resume")
+def spotify_resume_after_tv_clip(resume_after_clip: bool = False):
+    return {"resumed": spotify_service.resume_after_clip(resume_after_clip)}
+
 @app.get("/api/spotify/playlist-tracks")
-def spotify_playlist_tracks():
-    client = spotify_service.client()
+def spotify_playlist_tracks(_=Depends(admin_required)):
     playlist_id = settings.spotify_default_playlist
     if not playlist_id:
         raise HTTPException(400, "Configura SPOTIFY_DEFAULT_PLAYLIST para listar las pistas.")
     try:
-        playlist_pages = []
-        page = client.playlist_items(playlist_id, limit=100, offset=0)
-        while page.get("next"):
-            playlist_pages.append(page)
-            page = client.next(page)
+        playlist_pages = spotify_service.playlist_pages(playlist_id)
     except SpotifyException:
         try:
+            client = spotify_service.client()
             user_playlists = client.current_user_playlists(limit=20)
             fallback_playlist = next((item.get("id") for item in user_playlists.get("items", []) if item.get("id")), None)
             if not fallback_playlist:
                 raise SpotifyException(404, -1, "No hay listas de reproducción disponibles")
             playlist_id = fallback_playlist
-            playlist_pages = []
-            page = client.playlist_items(playlist_id, limit=100, offset=0)
-            while page.get("next"):
-                playlist_pages.append(page)
-                page = client.next(page)
+            playlist_pages = spotify_service.playlist_pages(playlist_id)
         except SpotifyException as exc:
             return JSONResponse(status_code=502, content={"playlist_id": playlist_id, "tracks": [], "error": str(exc)})
     tracks = []
-    for playlist_page in playlist_pages + [page]:
+    for playlist_page in playlist_pages:
         for item in playlist_page.get("items", []):
             track = item.get("track") or item.get("item")
             if not track:
@@ -206,6 +225,7 @@ def spotify_playlist_tracks():
                 "uri": track.get("uri"),
                 "artists": [artist.get("name") for artist in track.get("artists", []) if artist.get("name")],
                 "album": track.get("album", {}).get("name") if isinstance(track.get("album"), dict) else None,
+                "image": (track.get("album", {}).get("images") or [{}])[0].get("url") if isinstance(track.get("album"), dict) else None,
                 "duration_ms": track.get("duration_ms"),
             })
     return {"playlist_id": playlist_id, "tracks": tracks}
@@ -223,21 +243,70 @@ def spotify_play_track(payload: PlayTrackRequest, _=Depends(admin_required)):
         logging.warning("No se pudo activar el modo aleatorio de Spotify.")
     return {"ok": True}
 
-@app.get("/api/clips")
-def list_clips():
+CLIP_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v"}
+CLIP_MEDIA_TYPES = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v"}
+
+def clip_sort_key(path: Path):
+    try:
+        return (0, int(path.stem), path.name.lower())
+    except ValueError:
+        return (1, path.name.lower())
+
+def available_clips():
     if not settings.clips_folder.is_dir():
         return []
-    extensions = {".mp4", ".webm", ".mov", ".m4v"}
-    return [f"/api/clips/{quote(path.name)}" for path in sorted(settings.clips_folder.iterdir()) if path.is_file() and path.suffix.lower() in extensions]
+    clip_paths = [path for path in settings.clips_folder.iterdir() if path.is_file() and path.suffix.lower() in CLIP_EXTENSIONS]
+    return [f"/api/clips/{quote(path.name)}" for path in sorted(clip_paths, key=clip_sort_key)]
+
+def next_clip_filename(extension: str) -> str:
+    numbered_clips = [path for path in settings.clips_folder.iterdir() if path.is_file() and path.suffix.lower() in CLIP_EXTENSIONS and path.stem.isdigit()]
+    next_number = max((int(path.stem) for path in numbered_clips), default=0) + 1
+    padding = max((len(path.stem) for path in numbered_clips), default=2)
+    return f"{next_number:0{padding}d}{extension}"
+
+@app.get("/api/clips")
+def list_clips():
+    return available_clips()
+
+@app.get("/api/admin/clips")
+def admin_clips(_=Depends(admin_required)):
+    return available_clips()
+
+@app.post("/api/admin/clips", status_code=status.HTTP_201_CREATED)
+async def upload_clip(clip: UploadFile = File(...), _=Depends(admin_required)):
+    filename = Path(clip.filename or "").name
+    extension = Path(filename).suffix.lower()
+    if extension not in CLIP_EXTENSIONS:
+        raise HTTPException(415, "Formato no permitido. Usa MP4, WebM, MOV o M4V.")
+    contents = await clip.read(settings.max_clip_bytes + 1)
+    if len(contents) > settings.max_clip_bytes:
+        raise HTTPException(413, "El clip supera el tamaño máximo permitido.")
+
+    settings.clips_folder.mkdir(parents=True, exist_ok=True)
+    stored_filename = next_clip_filename(extension)
+    (settings.clips_folder / stored_filename).write_bytes(contents)
+    url = f"/api/clips/{quote(stored_filename)}"
+    await manager.broadcast({"type": "clip.created", "url": url})
+    return {"url": url, "filename": filename}
+
+@app.delete("/api/admin/clips/{filename}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_clip(filename: str, _=Depends(admin_required)):
+    if Path(filename).name != filename:
+        raise HTTPException(404)
+    path = settings.clips_folder / filename
+    if not path.is_file() or path.suffix.lower() not in CLIP_EXTENSIONS:
+        raise HTTPException(404, "Clip no encontrado.")
+    path.unlink()
+    await manager.broadcast({"type": "clip.deleted", "url": f"/api/clips/{quote(filename)}"})
 
 @app.get("/api/clips/{filename}")
 def clip_file(filename: str):
     if Path(filename).name != filename:
         raise HTTPException(404)
     path = settings.clips_folder / filename
-    if not path.is_file() or path.suffix.lower() not in {".mp4", ".webm", ".mov", ".m4v"}:
+    if not path.is_file() or path.suffix.lower() not in CLIP_EXTENSIONS:
         raise HTTPException(404)
-    return FileResponse(path)
+    return FileResponse(path, media_type=CLIP_MEDIA_TYPES[path.suffix.lower()])
 
 @app.websocket("/api/ws")
 async def websocket(ws: WebSocket):

@@ -3,7 +3,24 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from uuid import uuid4
 from fastapi import UploadFile
+from PIL import Image, ImageOps, UnidentifiedImageError
 from .models import ImageStatus
+
+
+def normalize_orientation(path: Path) -> bool:
+    """Bake an EXIF rotation into an image so every browser gets its true size."""
+    try:
+        with Image.open(path) as image:
+            if image.getexif().get(274, 1) == 1:
+                return False
+            normalized = ImageOps.exif_transpose(image)
+            image_format = image.format
+            if image_format == "JPEG" and normalized.mode not in {"RGB", "L"}:
+                normalized = normalized.convert("RGB")
+            normalized.save(path, format=image_format)
+            return True
+    except (OSError, UnidentifiedImageError):
+        return False
 
 class Storage(ABC):
     @abstractmethod
@@ -21,6 +38,7 @@ class LocalStorage(Storage):
         name = f"{uuid4().hex}{suffix}"
         destination = self.root / "pending" / name
         with destination.open("wb") as out: shutil.copyfileobj(file.file, out)
+        normalize_orientation(destination)
         return name, f"pending/{name}"
     def move(self, stored_filename: str, previous: ImageStatus, target: ImageStatus) -> str:
         source = self.root / self._folder(previous) / stored_filename

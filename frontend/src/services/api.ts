@@ -5,5 +5,17 @@ export const imageUrl = (path: string) => `${API_URL}${path}`;
 export const gallery = (state: string, page = 1, search = "") => api.get<PhotoPage>(`gallery/${state}`, { params: { page, page_size: 50, search } }).then(x => x.data);
 export const counter = () => api.get<{ value: number }>("counter").then(x => x.data);
 export const clips = () => api.get<string[]>("clips").then(x => x.data);
+export const adminClips = () => api.get<string[]>("admin/clips").then(x => x.data);
+export const uploadClip = (clip: File) => { const data = new FormData(); data.append("clip", clip); return api.post<{ url: string }>("admin/clips", data, { timeout: 0 }).then(x => x.data); };
+export const deleteClip = (filename: string) => api.delete(`admin/clips/${encodeURIComponent(filename)}`);
+export const spotifyState = () => api.get<SpotifyPlayback>("spotify/state").then(x => x.data);
+export const pauseSpotifyForClip = () => api.post<{ resume_after_clip: boolean }>("spotify/tv/clip-pause").then(x => x.data);
+export const resumeSpotifyAfterClip = (resumeAfterClip: boolean) => api.post("spotify/tv/clip-resume", undefined, { params: { resume_after_clip: resumeAfterClip } });
 export const pending = () => api.get<PhotoPage>("admin/pending").then(x => x.data);
 export const updateStatus = (id: number, status: Status, version: number) => api.post(`admin/status/${id}`, { status, version }).then(x => x.data);
+
+export type SpotifyPlayback = {
+  is_playing?: boolean;
+  progress_ms?: number;
+  item?: { name?: string; duration_ms?: number; artists?: { name: string }[]; album?: { images?: { url: string }[] } };
+} | null;
