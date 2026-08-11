@@ -27,6 +27,7 @@ app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in settings.co
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
     settings.clips_folder.mkdir(parents=True, exist_ok=True)
+    settings.ads_folder.mkdir(parents=True, exist_ok=True)
     if not spotify_service.has_token() or not settings.spotify_autoplay:
         return
     try:
@@ -245,8 +246,10 @@ def spotify_play_track(payload: PlayTrackRequest, _=Depends(admin_required)):
 
 CLIP_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v"}
 CLIP_MEDIA_TYPES = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v"}
+AD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+AD_MEDIA_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 
-def clip_sort_key(path: Path):
+def media_sort_key(path: Path):
     try:
         return (0, int(path.stem), path.name.lower())
     except ValueError:
@@ -256,12 +259,24 @@ def available_clips():
     if not settings.clips_folder.is_dir():
         return []
     clip_paths = [path for path in settings.clips_folder.iterdir() if path.is_file() and path.suffix.lower() in CLIP_EXTENSIONS]
-    return [f"/api/clips/{quote(path.name)}" for path in sorted(clip_paths, key=clip_sort_key)]
+    return [f"/api/clips/{quote(path.name)}" for path in sorted(clip_paths, key=media_sort_key)]
 
 def next_clip_filename(extension: str) -> str:
     numbered_clips = [path for path in settings.clips_folder.iterdir() if path.is_file() and path.suffix.lower() in CLIP_EXTENSIONS and path.stem.isdigit()]
     next_number = max((int(path.stem) for path in numbered_clips), default=0) + 1
     padding = max((len(path.stem) for path in numbered_clips), default=2)
+    return f"{next_number:0{padding}d}{extension}"
+
+def available_ads():
+    if not settings.ads_folder.is_dir():
+        return []
+    ad_paths = [path for path in settings.ads_folder.iterdir() if path.is_file() and path.suffix.lower() in AD_EXTENSIONS]
+    return [f"/api/ads/{quote(path.name)}" for path in sorted(ad_paths, key=media_sort_key)]
+
+def next_ad_filename(extension: str) -> str:
+    numbered_ads = [path for path in settings.ads_folder.iterdir() if path.is_file() and path.suffix.lower() in AD_EXTENSIONS and path.stem.isdigit()]
+    next_number = max((int(path.stem) for path in numbered_ads), default=0) + 1
+    padding = max((len(path.stem) for path in numbered_ads), default=2)
     return f"{next_number:0{padding}d}{extension}"
 
 @app.get("/api/clips")
@@ -307,6 +322,50 @@ def clip_file(filename: str):
     if not path.is_file() or path.suffix.lower() not in CLIP_EXTENSIONS:
         raise HTTPException(404)
     return FileResponse(path, media_type=CLIP_MEDIA_TYPES[path.suffix.lower()])
+
+@app.get("/api/ads")
+def list_ads():
+    return available_ads()
+
+@app.get("/api/admin/ads")
+def admin_ads(_=Depends(admin_required)):
+    return available_ads()
+
+@app.post("/api/admin/ads", status_code=status.HTTP_201_CREATED)
+async def upload_ad(ad: UploadFile = File(...), _=Depends(admin_required)):
+    filename = Path(ad.filename or "").name
+    extension = Path(filename).suffix.lower()
+    if extension not in AD_EXTENSIONS:
+        raise HTTPException(415, "Formato no permitido. Usa JPG, PNG o WebP.")
+    contents = await ad.read(settings.max_ad_bytes + 1)
+    if len(contents) > settings.max_ad_bytes:
+        raise HTTPException(413, "El anuncio supera el tamaño máximo permitido.")
+
+    settings.ads_folder.mkdir(parents=True, exist_ok=True)
+    stored_filename = next_ad_filename(extension)
+    (settings.ads_folder / stored_filename).write_bytes(contents)
+    url = f"/api/ads/{quote(stored_filename)}"
+    await manager.broadcast({"type": "ad.created", "url": url})
+    return {"url": url, "filename": filename}
+
+@app.delete("/api/admin/ads/{filename}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ad(filename: str, _=Depends(admin_required)):
+    if Path(filename).name != filename:
+        raise HTTPException(404)
+    path = settings.ads_folder / filename
+    if not path.is_file() or path.suffix.lower() not in AD_EXTENSIONS:
+        raise HTTPException(404, "Anuncio no encontrado.")
+    path.unlink()
+    await manager.broadcast({"type": "ad.deleted", "url": f"/api/ads/{quote(filename)}"})
+
+@app.get("/api/ads/{filename}")
+def ad_file(filename: str):
+    if Path(filename).name != filename:
+        raise HTTPException(404)
+    path = settings.ads_folder / filename
+    if not path.is_file() or path.suffix.lower() not in AD_EXTENSIONS:
+        raise HTTPException(404)
+    return FileResponse(path, media_type=AD_MEDIA_TYPES[path.suffix.lower()])
 
 @app.websocket("/api/ws")
 async def websocket(ws: WebSocket):

@@ -712,6 +712,7 @@ body {
 .clip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 1rem; }
 .clip-card { overflow: hidden; border: 1px solid #334155; border-radius: .85rem; background: #121d30; }
 .clip-card video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #020617; }
+.ad-preview { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #020617; }
 .clip-card-footer { display: flex; align-items: center; justify-content: space-between; gap: .65rem; padding: .55rem .65rem .55rem .8rem; }
 .clip-card-footer span { color: #edf2ff; font-size: .85rem; font-weight: 700; }
 .clip-delete { border: 1px solid #fb7185; border-radius: .55rem; padding: .4rem .55rem; background: #4c1020; color: #fecdd3; font-size: .75rem; font-weight: 750; cursor: pointer; }

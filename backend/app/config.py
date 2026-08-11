@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     counter_database_path: Path = Path("counter-data/counter.db")
     clips_folder: Path = Path("clips")
     max_clip_bytes: int = 1024 * 1024 * 1024
+    ads_folder: Path = Path("anuncios")
+    max_ad_bytes: int = 10 * 1024 * 1024
     spotify_client_id: str | None = None
     spotify_client_secret: str | None = None
     spotify_redirect_uri: str = "http://localhost:8000/admin/spotify/callback"

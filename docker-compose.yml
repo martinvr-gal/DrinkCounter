@@ -20,6 +20,7 @@ services:
       - ./uploads:/app/uploads
       - ./counter-data:/app/counter-data
       - ./clips:/app/clips
+      - ./anuncios:/app/anuncios
     depends_on:
       db:
         condition: service_healthy
@@ -33,6 +34,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
         VITE_WS_URL: ${VITE_WS_URL}
+        VITE_TV_AD_EVERY_PHOTOS: ${VITE_TV_AD_EVERY_PHOTOS:-10}
     ports:
       - "5173:80"
     depends_on:
