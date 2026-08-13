@@ -17,7 +17,8 @@ class SpotifyService:
 
     scope = (
         "streaming user-read-email user-read-private user-modify-playback-state "
-        "user-read-playback-state playlist-read-private playlist-read-collaborative"
+        "user-read-playback-state playlist-read-private playlist-read-collaborative "
+        "user-read-currently-playing user-read-recently-played"
     )
 
     def __init__(self, settings: Settings) -> None:
@@ -167,3 +168,146 @@ class SpotifyService:
         self.client()
         assert self._token_info is not None
         return self._token_info["access_token"]
+
+     # ---------------------------------------------------------
+    # TRANSFER TO WEB PLAYER
+    # ---------------------------------------------------------
+
+    def transfer_to_web_player(
+        self,
+        device_id: str,
+        play: bool = True,
+    ) -> dict:
+        """
+        Transfer Spotify playback to the browser
+        Web Playback SDK device.
+        """
+
+        if not device_id:
+            raise HTTPException(
+                400,
+                "device_id es obligatorio.",
+            )
+
+        client = self.client()
+
+        try:
+            client.transfer_playback(
+                device_id,
+                force_play=play,
+            )
+
+            return {
+                "ok": True,
+                "device_id": device_id,
+                "play": play,
+            }
+
+        except SpotifyException as exc:
+            raise HTTPException(
+                exc.http_status or 502,
+                f"No se pudo transferir Spotify: {exc}",
+            )
+
+    # ---------------------------------------------------------
+    # START LAST PLAYBACK ON WEB PLAYER
+    # ---------------------------------------------------------
+
+    def start_last_playback(
+        self,
+        device_id: str,
+    ) -> dict:
+        """
+        Transfer the current Spotify playback to the browser.
+
+        If there is no current playback, use the most recently
+        played track as a fallback.
+        """
+
+        if not device_id:
+            raise HTTPException(
+                400,
+                "device_id es obligatorio.",
+            )
+
+        client = self.client()
+
+        # ---------------------------------------------
+        # First: check current playback
+        # ---------------------------------------------
+
+        try:
+            playback = client.current_playback()
+
+        except SpotifyException as exc:
+            if exc.http_status == 404:
+                playback = None
+            else:
+                raise
+
+        if playback:
+            item = playback.get("item")
+
+            if item:
+                uri = item.get("uri")
+
+                if uri:
+                    client.transfer_playback(
+                        device_id,
+                        force_play=True,
+                    )
+
+                    return {
+                        "ok": True,
+                        "source": "current_playback",
+                        "uri": uri,
+                        "device_id": device_id,
+                    }
+
+        # ---------------------------------------------
+        # No current playback.
+        #
+        # Use the most recently played track.
+        # ---------------------------------------------
+
+        try:
+            recent = client.current_user_recently_played(
+                limit=1
+            )
+
+        except SpotifyException as exc:
+            raise HTTPException(
+                exc.http_status or 502,
+                f"No se pudo obtener la última canción: {exc}",
+            )
+
+        items = recent.get("items") or []
+
+        if not items:
+            raise HTTPException(
+                404,
+                "No hay ninguna canción reproducida recientemente.",
+            )
+
+        track = items[0].get("track") or {}
+
+        uri = track.get("uri")
+
+        if not uri:
+            raise HTTPException(
+                404,
+                "La última reproducción no contiene una URI válida.",
+            )
+
+        # Start that track directly on the Web Player.
+        client.start_playback(
+            device_id=device_id,
+            uris=[uri],
+        )
+
+        return {
+            "ok": True,
+            "source": "recently_played",
+            "uri": uri,
+            "device_id": device_id,
+        }

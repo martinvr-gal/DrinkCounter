@@ -23,3 +23,24 @@ export type SpotifyPlayback = {
   progress_ms?: number;
   item?: { name?: string; duration_ms?: number; artists?: { name: string }[]; album?: { images?: { url: string }[] } };
 } | null;
+
+export const spotifyToken = () =>
+  api
+    .get<{ access_token: string }>("spotify/token")
+    .then((x) => x.data);
+
+export const spotifyTransfer = (
+  deviceId: string,
+  play = true
+) =>
+  api.post("spotify/transfer", {
+    device_id: deviceId,
+    play,
+  });
+
+export const spotifyStartLast = (
+  deviceId: string
+) =>
+  api.post("spotify/start-last", {
+    device_id: deviceId,
+  });

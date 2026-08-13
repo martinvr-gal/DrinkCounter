@@ -17,6 +17,7 @@ from .schemas import CounterChangeRequest, CounterResponse, CounterSetRequest, L
 from .spotify import SpotifyService
 from .storage import LocalStorage
 from .websocket import manager
+from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format='{"time":"%(asctime)s","level":"%(levelname)s","message":"%(message)s"}')
 settings = get_settings(); storage = LocalStorage(settings.upload_folder); counter_service = CounterService(settings.counter_database_path); spotify_service = SpotifyService(settings)
@@ -143,7 +144,8 @@ def spotify_callback(code: str, state: str):
     return RedirectResponse("/spotify")
 
 @app.get("/api/spotify/has-token")
-def spotify_has_token(_=Depends(admin_required)):
+#def spotify_has_token(_=Depends(admin_required)):
+def spotify_has_token():
     return {"ok": spotify_service.has_token()}
 
 @app.get("/api/spotify/debug")
@@ -151,7 +153,8 @@ def spotify_debug_info(_=Depends(admin_required)):
     return spotify_service.debug_info()
 
 @app.get("/api/spotify/token")
-def spotify_token(_=Depends(admin_required)):
+#def spotify_token(_=Depends(admin_required)):
+def spotify_token():
     return {"access_token": spotify_service.access_token()}
 
 @app.post("/api/spotify/play")
@@ -243,6 +246,45 @@ def spotify_play_track(payload: PlayTrackRequest, _=Depends(admin_required)):
     except SpotifyException:
         logging.warning("No se pudo activar el modo aleatorio de Spotify.")
     return {"ok": True}
+
+
+############################
+class SpotifyDeviceRequest(BaseModel):
+    device_id: str
+    play: bool = True
+
+@app.post("/api/spotify/transfer")
+def spotify_transfer(
+    payload: SpotifyDeviceRequest,
+):
+    """
+    Transfer Spotify playback to the Web Playback SDK
+    device created in the browser.
+    """
+
+    return spotify_service.transfer_to_web_player(
+        device_id=payload.device_id,
+        play=payload.play,
+    )
+
+
+@app.post("/api/spotify/start-last")
+def spotify_start_last(
+    payload: SpotifyDeviceRequest,
+):
+    """
+    Start the current playback on the browser.
+
+    If there is no current playback, use the most
+    recently played track.
+    """
+
+    return spotify_service.start_last_playback(
+        device_id=payload.device_id,
+    )
+
+
+###################
 
 CLIP_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v"}
 CLIP_MEDIA_TYPES = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/x-m4v"}
