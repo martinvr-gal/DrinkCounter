@@ -716,8 +716,14 @@ body {
 
 .admin-nav-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
 .admin-nav-button.active { border-color: #7dd3fc; background: #12304a; color: #e0f2fe; }
+.admin-logout { border-color: #b91c1c; background: #b91c1c; color: #fff; }
+.admin-logout:hover { background: #991b1b; }
 
 .clips-library { padding-top: .1rem; }
+
+.library-pagination { display: flex; align-items: center; justify-content: center; gap: .8rem; margin: 1.25rem 0 .25rem; }
+.library-pagination span { color: #b7c7ea; font-size: .85rem; font-weight: 700; }
+.library-pagination .admin-nav-button:disabled { cursor: not-allowed; opacity: .45; }
 .clip-upload { display: flex; align-items: center; gap: .8rem; margin: .9rem 0 1.15rem; }
 .clip-upload input { min-width: 0; color: #b7c7ea; }
 .clip-upload .admin-nav-button { border: 0; white-space: nowrap; }

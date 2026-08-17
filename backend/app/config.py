@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     tv_interval_seconds: int = 10
     admin_username: str = "admin"
     admin_password: str = "change-me"
+    admin_session_hours: int = 24 * 30
     max_upload_bytes: int = 10 * 1024 * 1024
     cors_origins: str = "http://localhost:5173"
     counter_database_path: Path = Path("counter-data/counter.db")

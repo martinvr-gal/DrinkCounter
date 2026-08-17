@@ -121,6 +121,7 @@ export default function Tv() {
   const [currentAd, setCurrentAd] = useState<string | null>(null);
   const [photosShownSinceAd, setPhotosShownSinceAd] = useState(0);
   const lastCounterValue = useRef<number | null>(null);
+  const nextAdIndex = useRef(0);
   const restoredPhoto = useRef(false);
   const shownClips = useRef(new Set(localStorage.getItem(clipStorageKey)?.split(",").filter(Boolean) || []));
   const video = useRef<HTMLVideoElement>(null);
@@ -736,7 +737,8 @@ export default function Tv() {
         return;
       }
       if (adUrls.length && photosShownSinceAd >= adEveryPhotos) {
-        setCurrentAd(current => adUrls[(adUrls.indexOf(current || "") + 1) % adUrls.length]);
+        setCurrentAd(adUrls[nextAdIndex.current % adUrls.length]);
+        nextAdIndex.current += 1;
         setPhotosShownSinceAd(0);
         return;
       }

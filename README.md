@@ -26,6 +26,7 @@ La TV recibe las nuevas fotos mediante WebSocket y, si una conexión se pierde, 
 - Spotify se configura mediante `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI` y `SPOTIFY_DEFAULT_PLAYLIST`. La primera autorización guarda de forma privada el token de renovación en `SPOTIFY_TOKEN_PATH` (por defecto, `counter-data/spotify-token.json`, un directorio persistente e ignorado por Git); desde entonces no volverá a pedir iniciar sesión tras un reinicio. También puede establecerse manualmente con `SPOTIFY_REFRESH_TOKEN`, que tiene prioridad sobre el archivo. Con `SPOTIFY_AUTOPLAY=true` (valor predeterminado) intentará iniciar la playlist al arrancar y al terminar la autorización. Spotify exige que la cuenta tenga un dispositivo de reproducción activo. El refresh token es secreto y no debe exponerse al navegador ni subirse al repositorio.
 - `GET /api/clips` lista los vídeos disponibles y `GET /clips/{archivo}` los sirve. Se admiten `.mp4`, `.webm`, `.mov` y `.m4v`.
 - `GET /api/ads` lista los anuncios de la TV. Se admiten `.jpg`, `.jpeg`, `.png` y `.webp`. La frecuencia se configura en el frontend con `VITE_TV_AD_EVERY_PHOTOS` (10 por defecto).
+- La sesión de administración se conserva en el navegador durante 30 días por defecto; se puede ajustar con `ADMIN_SESSION_HOURS` y se puede cerrar desde el botón «Cerrar sesión».
 
 ## Decisiones de arquitectura
 
