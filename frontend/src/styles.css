@@ -96,18 +96,31 @@ body {
 
 .tv-photo {
     display: block;
-    width: auto;
-    height: auto;
-    max-width: 100%;
-    max-height: 100%;
+    /* El marco de la galería define el área disponible: nunca se recorta la foto. */
+    width: 100%;
+    height: 100%;
     object-fit: contain;
     image-orientation: from-image;
 }
 
+.tv-photo-slide {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 1.5rem;
+    gap: .75rem;
+}
+
+.tv-photo-slide .tv-photo {
+    min-width: 0;
+    min-height: 0;
+    object-position: center;
+}
+
 .tv-photo-author {
-    position: absolute;
-    right: 1.5rem;
-    bottom: 1.5rem;
+    justify-self: center;
     padding: .75rem 1.25rem;
     border-radius: .75rem;
     background: rgb(0 0 0 / 65%);
